@@ -16,43 +16,45 @@ const UA =
 // ==============================
 const TEAMS = [
   // Vic
-  { team: "Vic", url: "" },
+  { team: "Vic", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-federacio/grup-v/vic-unio-esportiva-club-a" },
   { team: "Fundació UE Vic", url: "" },
   { team: "OAR Vic", url: "" },
   { team: "FC Remei", url: "" },
   { team: "Vic Riuprimer Refo Futbol Club", url: "" },
 
   // Manlleu
-  { team: "Manlleu", url: "" },
-  { team: "AEC Manlleu", url: "" },
+  { team: "Manlleu", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/lliga-elit/grup-1/manlleu-aec-a" },
+  { team: "AEC Manlleu", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/lliga-elit/grup-1/manlleu-aec-a" },
   { team: "AEC Manlleu B", url: "" },
 
   // Torelló i rodalia
-  { team: "CF Torelló", url: "" },
+  // Nota: aquest enllaç és el TORELLO, C.F. B (Tercera Catalana G4). Si vols un altre equip del club,
+  // canvia la URL pel calendari-equip corresponent.
+  { team: "CF Torelló", url: "https://www.fcf.cat/calendari-equip/2526/divisio-honor-cadet-s15/tercera-catalana/grup-4/torello-cf-b" },
   { team: "CF Torelló B", url: "" },
   { team: "UE Sant Vicenç de Torelló", url: "" },
   { team: "CD Borgonyà", url: "" },
   { team: "UE Santperenca", url: "" },
 
   // Roda de Ter
-  { team: "CE Roda de Ter", url: "" },
+  { team: "CE Roda de Ter", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/roda-de-ter-ce-a" },
 
   // Voltreganès
-  { team: "CF Voltregà", url: "" },
+  { team: "CF Voltregà", url: "https://www.fcf.cat/calendari-equip/2526/divisio-honor-cadet-s15/tercera-catalana/grup-4/voltrega-cf-a" },
   { team: "CF Vinyoles", url: "" },
   { team: "CF La Gleva", url: "" },
 
   // Taradell – Tona – Balenyà
-  { team: "UD Taradell", url: "" },
-  { team: "UD Taradell B", url: "" },
-  { team: "UE Tona", url: "" },
+  { team: "UD Taradell", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/taradell-ud-a" },
+  { team: "UD Taradell B", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/quarta-catalana/grup-8/taradell-ud-b" },
+  { team: "UE Tona", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-federacio/grup-v/tona-ue-a" },
   { team: "UE Tona C", url: "" },
   { team: "CF Osona Sud", url: "" },
   { team: "Atlètic Balenyà", url: "" },
   { team: "CE Sant Miquel de Balenyà", url: "" },
 
   // Gurb – Calldetenes – Riudeperes
-  { team: "UE Gurb", url: "" },
+  { team: "UE Gurb", url: "https://www.fcf.cat/calendari-equip/2526/tercera-catalana/tercera-catalana/grup-4/gurb-ue-a" },
   { team: "UE Gurb B", url: "" },
   { team: "UE Gurb C", url: "" },
   { team: "CF Calldetenes", url: "" },
@@ -61,30 +63,31 @@ const TEAMS = [
   // Centelles – Seva – Aiguafreda
   { team: "UE Centelles", url: "" },
   { team: "UE Centelles B", url: "" },
-  { team: "UE Seva", url: "" },
+  { team: "UE Seva", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-catalana/grup-4/seva-ue-a" },
   { team: "UE Seva B", url: "" },
   { team: "CE Aiguafreda", url: "" },
 
   // Nord d’Osona
-  { team: "UD Sant Quirze de Besora", url: "" },
+  { team: "UD Sant Quirze de Besora", url: "https://www.fcf.cat/calendari-equip/2526/primera-federacio-futbol-femeni/tercera-catalana/grup-4/sant-quirze-besora-ud-a" },
   { team: "CD Montesquiu", url: "" },
 
   // Folgueroles – Vilatorta – Santa Eugènia
-  { team: "CF Folgueroles", url: "" },
+  { team: "CF Folgueroles", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/folgueroles-cf-a" },
   { team: "CF Sant Julià de Vilatorta", url: "" },
-  { team: "JE Santa Eugènia", url: "" },
+  { team: "JE Santa Eugènia", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/santa-eugenia-je-a" },
 
   // Rupit – Corcó – Cantonigròs
   { team: "UE Rupit i Pruit", url: "" },
-  { team: "AE Corcó", url: "" },
-  { team: "UE Cantonigròs", url: "" },
+  { team: "AE Corcó", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-catalana/grup-4/corco-ae-a" },
+  { team: "UE Cantonigròs", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-catalana/grup-4/cantonigros-ue-a" },
 
   // Lluçanès
-  { team: "FC Pradenc", url: "" },
-  { team: "CE Moià", url: "" },
+  { team: "FC Pradenc", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/pradenc-fc-a" },
+  { team: "CE Moià", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/moia-ce-a" },
   { team: "CE Moià B", url: "" },
   { team: "Olost FC", url: "" }
 ];
+
 
 // ==============================
 // Cache (geocoding)
