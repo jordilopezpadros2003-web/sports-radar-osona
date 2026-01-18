@@ -1,15 +1,19 @@
 {
   "name": "sports-radar-osona",
   "version": "1.0.0",
+  "description": "SPORTS RADAR - Futbol Osona (cap de setmana) fins a 4a catalana",
   "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
+    "cheerio": "^1.0.0",
     "express": "^4.19.2",
-    "node-fetch": "^3.3.2",
-    "cheerio": "^1.0.0-rc.12",
-    "luxon": "^3.4.4"
+    "luxon": "^3.5.0"
   }
 }
+
