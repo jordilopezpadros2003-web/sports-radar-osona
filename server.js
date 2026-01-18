@@ -87,29 +87,29 @@ const TEAMS = [
   { team: "CE Moià B", url: "" },
   { team: "Olost FC", url: "" }
 ];
-
+const TEAM_COORDS = {
+  "vic": { lat: 41.9304, lon: 2.2546 },
+  "manlleu": { lat: 42.0026, lon: 2.2846 },
+  "torell": { lat: 42.0485, lon: 2.2627 }, // "torelló" pot venir sense accent
+  "roda": { lat: 41.9823, lon: 2.3114 },
+  "taradell": { lat: 41.8758, lon: 2.2877 },
+  "tona": { lat: 41.8467, lon: 2.2275 },
+  "gurb": { lat: 41.9537, lon: 2.2358 },
+  "seva": { lat: 41.8375, lon: 2.2815 },
+  "besora": { lat: 42.1004, lon: 2.2237 },
+  "folgueroles": { lat: 41.9389, lon: 2.3181 },
+  "eugenia": { lat: 41.9009, lon: 2.2827 },
+  "cantonigros": { lat: 42.0418, lon: 2.3922 },
+  "moia": { lat: 41.8125, lon: 2.0987 },
+  "prades": { lat: 42.0088, lon: 2.0265 },
+  "olost": { lat: 42.0107, lon: 2.0959 }
+};
 
 // ==============================
 // Cache (geocoding)
 // ==============================
 
-const TEAM_COORDS = {
-  "Vic": { lat: 41.9304, lon: 2.2546 },
-  "Manlleu": { lat: 42.0026, lon: 2.2846 },
-  "Torelló": { lat: 42.0485, lon: 2.2627 },
-  "Roda de Ter": { lat: 41.9823, lon: 2.3114 },
-  "Taradell": { lat: 41.8758, lon: 2.2877 },
-  "Tona": { lat: 41.8467, lon: 2.2275 },
-  "Gurb": { lat: 41.9537, lon: 2.2358 },
-  "Seva": { lat: 41.8375, lon: 2.2815 },
-  "Sant Quirze de Besora": { lat: 42.1004, lon: 2.2237 },
-  "Folgueroles": { lat: 41.9389, lon: 2.3181 },
-  "Santa Eugènia de Berga": { lat: 41.9009, lon: 2.2827 },
-  "Cantonigròs": { lat: 42.0418, lon: 2.3922 },
-  "Moià": { lat: 41.8125, lon: 2.0987 },
-  "Prades de Lluçanès": { lat: 42.0088, lon: 2.0265 },
-  "Olost": { lat: 42.0107, lon: 2.0959 },
-};
+
 
 const GEO_CACHE_FILE = "./geocache.json";
 const STADIUM_CACHE_FILE = "./stadiums.json";
@@ -407,11 +407,33 @@ async function enrichMatchLocation(match) {
         match.lat = geo.lat;
         match.lon = geo.lon;
       }
+      // si ja tenim coords, tornem
+      if (typeof match.lat === "number" && typeof match.lon === "number") return match;
+    }
+  }
+
+  // 3) ✅ FALLBACK: coords per poble/equip (pins encara que no hi hagi acta)
+  if (match.lat == null || match.lon == null) {
+    const candidates = [match.home, match.team];
+    for (const c of candidates) {
+      if (!c) continue;
+      const cl = String(c).toLowerCase();
+
+      for (const key of Object.keys(TEAM_COORDS)) {
+        if (cl.includes(key.toLowerCase())) {
+          match.lat = TEAM_COORDS[key].lat;
+          match.lon = TEAM_COORDS[key].lon;
+          match.stadiumName = match.stadiumName || key;
+          match.address = match.address || key;
+          return match;
+        }
+      }
     }
   }
 
   return match;
 }
+
 
 // ==============================
 // Agregació cap de setmana
