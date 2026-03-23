@@ -6,14 +6,11 @@ import fs from "fs";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Configuration
 const TZ = "Europe/Madrid";
-const UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
+const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
 
-// ==============================
-// EQUIPS (OSONA) — omple url amb calendari FCF
-// Format URL esperat: https://www.fcf.cat/calendari-equip/...
-// ==============================
+// Teams array - all Osona region teams
 const TEAMS = [
   // Vic
   { team: "Vic", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-federacio/grup-v/vic-unio-esportiva-club-a" },
@@ -21,30 +18,18 @@ const TEAMS = [
   { team: "OAR Vic", url: "" },
   { team: "FC Remei", url: "" },
   { team: "Vic Riuprimer Refo Futbol Club", url: "" },
-
-  // Manlleu
   { team: "Manlleu", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/lliga-elit/grup-1/manlleu-aec-a" },
   { team: "AEC Manlleu", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/lliga-elit/grup-1/manlleu-aec-a" },
   { team: "AEC Manlleu B", url: "" },
-
-  // Torelló i rodalia
-  // Nota: aquest enllaç és el TORELLO, C.F. B (Tercera Catalana G4). Si vols un altre equip del club,
-  // canvia la URL pel calendari-equip corresponent.
   { team: "CF Torelló", url: "https://www.fcf.cat/calendari-equip/2526/divisio-honor-cadet-s15/tercera-catalana/grup-4/torello-cf-b" },
   { team: "CF Torelló B", url: "" },
   { team: "UE Sant Vicenç de Torelló", url: "" },
   { team: "CD Borgonyà", url: "" },
   { team: "UE Santperenca", url: "" },
-
-  // Roda de Ter
   { team: "CE Roda de Ter", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/roda-de-ter-ce-a" },
-
-  // Voltreganès
   { team: "CF Voltregà", url: "https://www.fcf.cat/calendari-equip/2526/divisio-honor-cadet-s15/tercera-catalana/grup-4/voltrega-cf-a" },
   { team: "CF Vinyoles", url: "" },
   { team: "CF La Gleva", url: "" },
-
-  // Taradell – Tona – Balenyà
   { team: "UD Taradell", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/taradell-ud-a" },
   { team: "UD Taradell B", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/quarta-catalana/grup-8/taradell-ud-b" },
   { team: "UE Tona", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-federacio/grup-v/tona-ue-a" },
@@ -52,45 +37,35 @@ const TEAMS = [
   { team: "CF Osona Sud", url: "" },
   { team: "Atlètic Balenyà", url: "" },
   { team: "CE Sant Miquel de Balenyà", url: "" },
-
-  // Gurb – Calldetenes – Riudeperes
   { team: "UE Gurb", url: "https://www.fcf.cat/calendari-equip/2526/tercera-catalana/tercera-catalana/grup-4/gurb-ue-a" },
   { team: "UE Gurb B", url: "" },
   { team: "UE Gurb C", url: "" },
   { team: "CF Calldetenes", url: "" },
   { team: "Atlètic Riudeperes", url: "" },
-
-  // Centelles – Seva – Aiguafreda
   { team: "UE Centelles", url: "" },
   { team: "UE Centelles B", url: "" },
   { team: "UE Seva", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-catalana/grup-4/seva-ue-a" },
   { team: "UE Seva B", url: "" },
   { team: "CE Aiguafreda", url: "" },
-
-  // Nord d’Osona
   { team: "UD Sant Quirze de Besora", url: "https://www.fcf.cat/calendari-equip/2526/primera-federacio-futbol-femeni/tercera-catalana/grup-4/sant-quirze-besora-ud-a" },
   { team: "CD Montesquiu", url: "" },
-
-  // Folgueroles – Vilatorta – Santa Eugènia
   { team: "CF Folgueroles", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/folgueroles-cf-a" },
   { team: "CF Sant Julià de Vilatorta", url: "" },
   { team: "JE Santa Eugènia", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/santa-eugenia-je-a" },
-
-  // Rupit – Corcó – Cantonigròs
   { team: "UE Rupit i Pruit", url: "" },
   { team: "AE Corcó", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-catalana/grup-4/corco-ae-a" },
   { team: "UE Cantonigròs", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-catalana/grup-4/cantonigros-ue-a" },
-
-  // Lluçanès
   { team: "FC Pradenc", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/pradenc-fc-a" },
   { team: "CE Moià", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/moia-ce-a" },
   { team: "CE Moià B", url: "" },
   { team: "Olost FC", url: "" }
 ];
+
+// Hardcoded team coordinates for Osona region
 const TEAM_COORDS = {
   "vic": { lat: 41.9304, lon: 2.2546 },
   "manlleu": { lat: 42.0026, lon: 2.2846 },
-  "torell": { lat: 42.0485, lon: 2.2627 }, // "torelló" pot venir sense accent
+  "torell": { lat: 42.0485, lon: 2.2627 },
   "roda": { lat: 41.9823, lon: 2.3114 },
   "taradell": { lat: 41.8758, lon: 2.2877 },
   "tona": { lat: 41.8467, lon: 2.2275 },
@@ -105,517 +80,800 @@ const TEAM_COORDS = {
   "olost": { lat: 42.0107, lon: 2.0959 }
 };
 
-// ==============================
-// Cache (geocoding)
-// ==============================
+// ==========================================
+// Cache & State
+// ==========================================
+let cachedMatches = [];
+let cacheTimestamp = null;
+const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 
-
-
-const GEO_CACHE_FILE = "./geocache.json";
-const STADIUM_CACHE_FILE = "./stadiums.json";
-
-function loadJson(file, fallback) {
+// ==========================================
+// Utility: Get match date object
+// ==========================================
+function getMatchDate(dateStr) {
   try {
-    if (!fs.existsSync(file)) return fallback;
-    return JSON.parse(fs.readFileSync(file, "utf-8"));
-  } catch {
-    return fallback;
-  }
-}
-function saveJson(file, obj) {
-  try {
-    fs.writeFileSync(file, JSON.stringify(obj, null, 2));
-  } catch {
-    // Si el FS fos read-only, no passa res (seguiria sense cache)
-  }
-}
-
-const geoCache = loadJson(GEO_CACHE_FILE, {}); // key: address -> {lat, lon, display_name, updatedAtISO}
-const stadiumCache = loadJson(STADIUM_CACHE_FILE, {}); // key: team -> {stadiumName, address, updatedAtISO}
-
-// ==============================
-// Helpers
-// ==============================
-function normalizeSpaces(s) {
-  return (s || "").replace(/\s+/g, " ").trim();
-}
-function parseDMY(dateText) {
-  const t = normalizeSpaces(dateText).replace(/\//g, "-");
-  const dt = DateTime.fromFormat(t, "dd-MM-yyyy", { zone: TZ });
-  return dt.isValid ? dt.startOf("day") : null;
-}
-function parseHM(timeText) {
-  const t = normalizeSpaces(timeText);
-  const dt = DateTime.fromFormat(t, "HH:mm", { zone: TZ });
-  return dt.isValid ? { hour: dt.hour, minute: dt.minute } : null;
-}
-function getWeekendRange(offsetWeeks = 0) {
-  const now = DateTime.now().setZone(TZ).plus({ weeks: offsetWeeks });
-  const weekday = now.weekday; // 1..7
-  const daysToSat = (6 - weekday + 7) % 7;
-  const sat = now.plus({ days: daysToSat }).startOf("day");
-  const sun = sat.plus({ days: 1 }).endOf("day");
-  return { sat, sun };
-}
-function inWeekend(dtISO, offsetWeeks = 0) {
-  const dt = DateTime.fromISO(dtISO, { zone: TZ });
-  if (!dt.isValid) return false;
-  const { sat, sun } = getWeekendRange(offsetWeeks);
-  return dt >= sat && dt <= sun;
-}
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-function applyFallbackCoords(match) {
-  if (typeof match.lat === "number" && typeof match.lon === "number") return match;
-
-  const candidates = [match.home, match.team];
-  for (const c of candidates) {
-    if (!c) continue;
-    const cl = String(c).toLowerCase();
-
-    for (const key of Object.keys(TEAM_COORDS)) {
-      if (cl.includes(key.toLowerCase())) {
-        match.lat = TEAM_COORDS[key].lat;
-        match.lon = TEAM_COORDS[key].lon;
-        match.stadiumName = match.stadiumName || key;
-        match.address = match.address || key;
-        return match;
-      }
-    }
-  }
-  return match;
-}
-// ==============================
-// Geocoding (OpenStreetMap Nominatim) + cache
-// ==============================
-async function geocodeAddress(address) {
-  const key = normalizeSpaces(address);
-  if (!key) return null;
-  if (geoCache[key]) return geoCache[key];
-
-  const url =
-    "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" +
-    encodeURIComponent(key);
-
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent": "SPORTS-RADAR-OSONA/1.0 (demo)",
-      Accept: "application/json"
-    }
-  });
-
-  if (!res.ok) return null;
-  const data = await res.json();
-  if (!Array.isArray(data) || data.length === 0) return null;
-
-  const hit = {
-    lat: Number(data[0].lat),
-    lon: Number(data[0].lon),
-    display_name: data[0].display_name,
-    updatedAtISO: DateTime.now().setZone(TZ).toISO()
-  };
-
-  geoCache[key] = hit;
-  saveJson(GEO_CACHE_FILE, geoCache);
-
-  // throttle (respectuós)
-  await sleep(900);
-
-  return hit;
-}
-
-// ==============================
-// Scraping FCF: calendari-equip
-// Nota: el calendari dona data/hora/casa/fora.
-// Per “camp exacte” cal anar a la fitxa/acta del partit.
-// Com que la FCF varia el layout, ho fem amb detecció robusta:
-// - busquem links que continguin "/acta/" dins la fila (si existeixen).
-// - si és futur, NO hi haurà acta: llavors usem camp habitual del local (cache).
-// ==============================
-async function scrapeFCFTeamCalendar(teamObj) {
-  const warnings = [];
-  if (!teamObj.url || !teamObj.url.startsWith("https://www.fcf.cat/calendari-equip/")) {
-    return { matches: [], warnings: [`Falta URL FCF per: ${teamObj.team}`] };
-  }
-
-  const res = await fetch(teamObj.url, {
-    headers: { "User-Agent": UA, Accept: "text/html" }
-  });
-
-  if (!res.ok) return { matches: [], warnings: [`No he pogut obrir: ${teamObj.url}`] };
-
-  const html = await res.text();
-  const $ = cheerio.load(html);
-
-  const matches = [];
-
-  $("table tr").each((_, tr) => {
-    const tds = $(tr).find("td");
-    if (tds.length < 5) return;
-
-    const dateText = normalizeSpaces($(tds[1]).text());
-    const timeText = normalizeSpaces($(tds[2]).text());
-    const homeText = normalizeSpaces($(tds[3]).text());
-    const awayText = normalizeSpaces($(tds[4]).text());
-
-    const day = parseDMY(dateText);
-    if (!day) return;
-
-    const hm = parseHM(timeText);
-    const dt = hm ? day.set({ hour: hm.hour, minute: hm.minute }) : day;
-
-    if (!homeText || !awayText) return;
-
-    // prova de trobar acta dins la fila (normalment a l’última cel·la)
-    let actaUrl = null;
-    $(tr)
-      .find("a[href*='/acta/']")
-      .each((_, a) => {
-        const href = $(a).attr("href");
-        if (!href) return;
-        actaUrl = href.startsWith("http") ? href : `https://www.fcf.cat${href}`;
-      });
-
-    matches.push({
-      sport: "Futbol",
-      team: teamObj.team,
-      source: "FCF",
-      sourceUrl: teamObj.url,
-      datetimeISO: dt.toISO(),
-      home: homeText,
-      away: awayText,
-      actaUrl,
-      stadiumName: null,
-      address: null,
-      lat: null,
-      lon: null
-    });
-  });
-
-  return { matches, warnings };
-}
-
-// intenta treure camp/adreça des d’una acta (si existeix)
-async function scrapeActaStadium(actaUrl) {
-  try {
-    const res = await fetch(actaUrl, { headers: { "User-Agent": UA, Accept: "text/html" } });
-    if (!res.ok) return null;
-
-    const html = await res.text();
-    const $ = cheerio.load(html);
-
-    // Heurístic: busca una secció que contingui "Estadi" i/o un link "Com arribar"
-    // Agafem el text del bloc pare.
-    const comArribar = $("a")
-      .filter((_, a) => normalizeSpaces($(a).text()).toLowerCase().includes("com arribar"))
-      .first();
-
-    let blockText = "";
-    if (comArribar.length) {
-      blockText = normalizeSpaces(comArribar.parent().text());
-    } else {
-      // fallback: cerca "Estadi" al text
-      blockText = normalizeSpaces($.text());
-    }
-
-    // Intenta extreure "Estadi ..." (molt variable)
-    // Ens quedem amb una aproximació: nom camp + resta com "adreça"
-    let stadiumName = null;
-    let address = null;
-
-    // prova 1: si dins el parent hi ha un primer <a> (sovint el camp)
-    if (comArribar.length) {
-      const parent = comArribar.parent();
-      const firstA = parent.find("a").first();
-      stadiumName = normalizeSpaces(firstA.text()) || null;
-
-      let t = normalizeSpaces(parent.text());
-      t = t.replace(/Estadi/gi, "").replace(/Com arribar/gi, "");
-      if (stadiumName) t = t.replace(stadiumName, "");
-      address = normalizeSpaces(t) || null;
-    }
-
-    // si segueix buit, no podem garantir-ho
-    if (!stadiumName && !address) return null;
-
-    return { stadiumName, address };
+    return DateTime.fromFormat(dateStr, "dd/MM/yyyy", { zone: TZ });
   } catch {
     return null;
   }
 }
 
-// camp habitual del club (cache)
-// idea: si no tenim camp, intentem trobar una acta antiga del club i guardar-ne l’adreça.
-// (Si no hi ha cap acta accessible, no hi haurà pin.)
-async function ensureHomeStadium(teamObj) {
-  if (stadiumCache[teamObj.team]) return stadiumCache[teamObj.team];
+// ==========================================
+// Geocoding: Find team coordinates
+// ==========================================
+function findCoordinatesByTeam(teamName) {
+  const normalized = teamName.toLowerCase();
 
-  const { matches } = await scrapeFCFTeamCalendar(teamObj);
-
-  // busquem qualsevol partit amb acta
-  const withActa = matches
-    .filter((m) => m.actaUrl)
-    .sort((a, b) => DateTime.fromISO(b.datetimeISO).toMillis() - DateTime.fromISO(a.datetimeISO).toMillis());
-
-  if (withActa.length === 0) return null;
-
-  const info = await scrapeActaStadium(withActa[0].actaUrl);
-  if (!info?.address) return null;
-
-  stadiumCache[teamObj.team] = {
-    stadiumName: info.stadiumName || null,
-    address: info.address,
-    updatedAtISO: DateTime.now().setZone(TZ).toISO()
-  };
-  saveJson(STADIUM_CACHE_FILE, stadiumCache);
-
-  return stadiumCache[teamObj.team];
-}
-
-async function enrichMatchLocation(match) {
-  // 1) si hi ha acta, provem camp exacte
-  if (match.actaUrl) {
-    const info = await scrapeActaStadium(match.actaUrl);
-    if (info?.address) {
-      match.stadiumName = info.stadiumName || null;
-      match.address = info.address;
-
-      const geo = await geocodeAddress(info.address);
-      if (geo) {
-        match.lat = geo.lat;
-        match.lon = geo.lon;
-      }
-      return match;
+  // Check against hardcoded coordinates
+  for (const [key, coords] of Object.entries(TEAM_COORDS)) {
+    if (normalized.includes(key)) {
+      return coords;
     }
   }
 
-  // 2) si és futur: camp habitual del local (si el local és un dels teus equips)
-  const homeObj = TEAMS.find(
-    (t) => normalizeSpaces(t.team).toLowerCase() === normalizeSpaces(match.home).toLowerCase()
+  // Fallback: if unknown, use center of Osona
+  return { lat: 41.95, lon: 2.25 };
+}
+
+// ==========================================
+// Scraping: Extract match data from FCF
+// ==========================================
+async function fetchMatchesForTeam(teamName, url) {
+  if (!url) return [];
+
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": UA },
+      timeout: 5000
+    });
+
+    if (!res.ok) return [];
+
+    const html = await res.text();
+    const $ = cheerio.load(html);
+    const matches = [];
+
+    // Parse FCF calendar table
+    $("table.table tbody tr").each((_, row) => {
+      const cells = $(row).find("td");
+      if (cells.length < 5) return;
+
+      const dateStr = cells.eq(0).text().trim();
+      const opponent = cells.eq(2).text().trim();
+      const location = cells.eq(3).text().trim();
+      const linkElement = cells.eq(4).find("a");
+      const actaUrl = linkElement.attr("href") || "";
+
+      if (!dateStr || !opponent) return;
+
+      const matchDate = getMatchDate(dateStr);
+      if (!matchDate) return;
+
+      const coords = findCoordinatesByTeam(location);
+
+      matches.push({
+        date: matchDate.toISOString(),
+        dateStr,
+        time: cells.eq(1).text().trim() || "TBD",
+        home: teamName,
+        away: opponent,
+        location,
+        lat: coords.lat,
+        lon: coords.lon,
+        actaUrl
+      });
+    });
+
+    return matches;
+  } catch (error) {
+    console.error(`Error fetching ${teamName}:`, error.message);
+    return [];
+  }
+}
+
+// ==========================================
+// Main: Fetch all matches (with caching)
+// ==========================================
+async function getAllMatches() {
+  // Return cached if fresh
+  if (cachedMatches.length > 0 && cacheTimestamp) {
+    const age = Date.now() - cacheTimestamp;
+    if (age < CACHE_DURATION_MS) {
+      console.log(`Using cached matches (${age / 1000 | 0}s old)`);
+      return cachedMatches;
+    }
+  }
+
+  console.log("Fetching matches from FCF...");
+  const allMatches = [];
+
+  // Fetch in parallel with Promise.all
+  const promises = TEAMS.map(({ team, url }) =>
+    fetchMatchesForTeam(team, url)
   );
 
-  if (homeObj) {
-    const homeStadium = await ensureHomeStadium(homeObj);
-    if (homeStadium?.address) {
-      match.stadiumName = homeStadium.stadiumName || null;
-      match.address = homeStadium.address;
+  const results = await Promise.all(promises);
+  results.forEach(matches => allMatches.push(...matches));
 
-      const geo = await geocodeAddress(homeStadium.address);
-      if (geo) {
-        match.lat = geo.lat;
-        match.lon = geo.lon;
-      }
-      // si ja tenim coords, tornem
-      if (typeof match.lat === "number" && typeof match.lon === "number") return match;
-    }
-  }
-
-  // 3) ✅ FALLBACK: coords per poble/equip (pins encara que no hi hagi acta)
-  if (match.lat == null || match.lon == null) {
-    const candidates = [match.home, match.team];
-    for (const c of candidates) {
-      if (!c) continue;
-      const cl = String(c).toLowerCase();
-
-      for (const key of Object.keys(TEAM_COORDS)) {
-        if (cl.includes(key.toLowerCase())) {
-          match.lat = TEAM_COORDS[key].lat;
-          match.lon = TEAM_COORDS[key].lon;
-          match.stadiumName = match.stadiumName || key;
-          match.address = match.address || key;
-          return match;
-        }
-      }
-    }
-  }
-
-  return match;
-}
-
-
-// ==============================
-// Agregació cap de setmana
-// ==============================
-async function getWeekendMatches(offsetWeeks = 0) {
-  const all = [];
-  const warnings = [];
-
-  for (const t of TEAMS) {
-    const out = await scrapeFCFTeamCalendar(t);
-    all.push(...out.matches);
-    warnings.push(...out.warnings);
-  }
-
-  const weekend = all.filter((m) => inWeekend(m.datetimeISO, offsetWeeks));
-
-  // dedupe
+  // Deduplicate by (dateStr, home, away)
   const seen = new Set();
-  const deduped = [];
-  for (const m of weekend) {
-    const key = `${m.datetimeISO}|${m.home}|${m.away}|${m.team}`;
-    if (seen.has(key)) continue;
+  const deduplicated = allMatches.filter(m => {
+    const key = `${m.dateStr}|${m.home}|${m.away}`;
+    if (seen.has(key)) return false;
     seen.add(key);
-    deduped.push(m);
-  }
+    return true;
+  });
 
-  // enrich locations (pins)
-  for (let i = 0; i < deduped.length; i++) {
-    deduped[i] = await enrichMatchLocation(deduped[i]);
-  }
+  // Sort by date ascending
+  deduplicated.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  deduped.sort(
-    (a, b) =>
-      DateTime.fromISO(a.datetimeISO, { zone: TZ }).toMillis() -
-      DateTime.fromISO(b.datetimeISO, { zone: TZ }).toMillis()
-  );
+  cachedMatches = deduplicated;
+  cacheTimestamp = Date.now();
 
-  return { matches: deduped, warnings };
+  console.log(`Loaded ${cachedMatches.length} matches`);
+  return cachedMatches;
 }
 
-// ==============================
+// ==========================================
 // Routes
-// ==============================
-app.get("/api/weekend", async (req, res) => {
-  const offset = Number(req.query.offset || 0);
-  const offsetWeeks = Number.isFinite(offset) ? offset : 0;
+// ==========================================
 
-  const { sat, sun } = getWeekendRange(offsetWeeks);
-  const data = await getWeekendMatches(offsetWeeks);
+/**
+ * GET / - Serves the main HTML page with embedded match data
+ */
+app.get("/", async (req, res) => {
+  try {
+    const matches = await getAllMatches();
 
-  res.json({
-    ok: true,
-    timezone: TZ,
-    weekend: { from: sat.toISODate(), to: sun.toISODate(), offsetWeeks },
-    count: data.matches.length,
-    warnings: data.warnings,
-    matches: data.matches
-  });
-});
-
-app.get("/", async (_req, res) => {
-  const offsetWeeks = 0;
-  const { sat, sun } = getWeekendRange(offsetWeeks);
-  const data = await getWeekendMatches(offsetWeeks);
-
-  const matches = data.matches;
-
-  // centre aproximat (Vic)
-  const defaultLat = 41.9304;
-  const defaultLon = 2.2546;
-
-  const points = matches
-    .filter((m) => typeof m.lat === "number" && typeof m.lon === "number")
-    .map((m) => ({
-      lat: m.lat,
-      lon: m.lon,
-      title: `${DateTime.fromISO(m.datetimeISO, { zone: TZ }).toFormat("ccc dd/LL HH:mm")} — ${m.home} vs ${m.away}`,
-      subtitle: m.team,
-      stadium: m.stadiumName || "",
-      address: m.address || "",
-      actaUrl: m.actaUrl || ""
+    // Convert matches to GeoJSON-like format for frontend
+    const geoData = matches.map(m => ({
+      type: "Feature",
+      geometry: {
+        type: "Point",
+        coordinates: [m.lon, m.lat]
+      },
+      properties: {
+        title: `${m.home} vs ${m.away}`,
+        time: m.time,
+        location: m.location,
+        dateStr: m.dateStr,
+        date: m.date,
+        home: m.home,
+        away: m.away,
+        actaUrl: m.actaUrl
+      }
     }));
 
-  res.type("html").send(`<!doctype html>
+    // Calculate stats
+    const totalMatches = matches.length;
+    const uniqueLocations = new Set(matches.map(m => m.location)).size;
+    const dateRange = matches.length > 0
+      ? `${matches[0].dateStr} - ${matches[matches.length - 1].dateStr}`
+      : "N/A";
+
+    // Build the HTML response
+    const html = `<!DOCTYPE html>
 <html lang="ca">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>SPORTS RADAR — Futbol Osona (Mapa)</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sports Radar Osona - Calendari de Partits</title>
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+
+  <!-- Leaflet MarkerCluster CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/MarkerCluster.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/MarkerCluster.Default.min.css">
 
   <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:1100px;margin:24px auto;padding:0 14px}
-    h1{margin:0 0 6px}
-    .muted{color:#666}
-    #map{height:520px;border:1px solid #eee;border-radius:14px}
-    .box{border:1px solid #eee;border-radius:14px;padding:12px 14px;margin:12px 0}
-    .btn{display:inline-block;padding:10px 12px;border-radius:10px;border:1px solid #ddd;text-decoration:none;margin-right:8px}
-    li{margin:10px 0}
-    small{color:#666}
-    code{background:#f3f3f3;padding:2px 6px;border-radius:6px}
+    /* Reset & Base */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', sans-serif;
+      background-color: #f5f7fa;
+      color: #1a1a2e;
+    }
+
+    body {
+      overflow-x: hidden;
+    }
+
+    /* Container & Grid */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #1A73E8 0%, #1e5bad 100%);
+      color: white;
+      padding: 40px 0;
+      box-shadow: 0 4px 12px rgba(26, 115, 232, 0.15);
+      margin-bottom: 32px;
+    }
+
+    .header h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      font-size: 1rem;
+      opacity: 0.95;
+      font-weight: 300;
+      letter-spacing: 0.3px;
+    }
+
+    /* Stats Bar */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      border-left: 4px solid #1A73E8;
+      transition: all 0.3s ease;
+    }
+
+    .stat-card:hover {
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .stat-card .label {
+      font-size: 0.85rem;
+      color: #6b7280;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .stat-card .value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #1A73E8;
+    }
+
+    /* Filter Bar */
+    .filter-bar {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      margin-bottom: 32px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .filter-buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 10px 20px;
+      border: 2px solid #e5e7eb;
+      background: white;
+      color: #4b5563;
+      border-radius: 24px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      white-space: nowrap;
+    }
+
+    .filter-btn:hover {
+      border-color: #1A73E8;
+      color: #1A73E8;
+    }
+
+    .filter-btn.active {
+      background: #1A73E8;
+      color: white;
+      border-color: #1A73E8;
+    }
+
+    .search-container {
+      flex: 1;
+      min-width: 250px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 10px 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      transition: border-color 0.3s ease;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: #1A73E8;
+    }
+
+    /* Map Section */
+    .map-section {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      margin-bottom: 32px;
+    }
+
+    #map {
+      height: 600px;
+      width: 100%;
+    }
+
+    /* Match List */
+    .match-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+
+    .match-card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      transition: all 0.3s ease;
+      border-top: 4px solid #1A73E8;
+    }
+
+    .match-card:hover {
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+      transform: translateY(-4px);
+    }
+
+    .match-card.hidden {
+      display: none;
+    }
+
+    .match-time {
+      font-size: 0.85rem;
+      color: #6b7280;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    .match-teams {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .team-name {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #1a1a2e;
+      flex: 1;
+    }
+
+    .vs-badge {
+      background: #e5e7eb;
+      color: #4b5563;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .match-details {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .detail-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.95rem;
+      color: #4b5563;
+    }
+
+    .detail-icon {
+      font-size: 1.2rem;
+      margin-top: 2px;
+    }
+
+    .acta-link {
+      display: inline-block;
+      padding: 10px 16px;
+      background: #2ECC71;
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 500;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+      text-align: center;
+    }
+
+    .acta-link:hover {
+      background: #27ae60;
+      transform: translateY(-1px);
+    }
+
+    .acta-link.disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    /* Footer */
+    .footer {
+      background: #1a1a2e;
+      color: white;
+      text-align: center;
+      padding: 32px 0;
+      margin-top: 48px;
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+
+    /* Leaflet Popup Override */
+    .leaflet-popup-content-wrapper {
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    }
+
+    .leaflet-popup-content {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+    }
+
+    .popup-title {
+      font-weight: 600;
+      color: #1a1a2e;
+      margin-bottom: 8px;
+    }
+
+    .popup-detail {
+      color: #6b7280;
+      margin: 4px 0;
+      font-size: 0.85rem;
+    }
+
+    /* Loading Animation */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .match-card {
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .header h1 {
+        font-size: 1.8rem;
+      }
+
+      .filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .filter-buttons {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .search-container {
+        width: 100%;
+        min-width: auto;
+      }
+
+      .match-list {
+        grid-template-columns: 1fr;
+      }
+
+      #map {
+        height: 400px;
+      }
+
+      .stats-bar {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* No Results Message */
+    .no-results {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 40px;
+      color: #6b7280;
+    }
+
+    .no-results-icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
+    }
   </style>
 </head>
 <body>
-  <h1>⚽ SPORTS RADAR — Futbol Osona (Mapa)</h1>
-  <p class="muted">Cap de setmana: <strong>${sat.toISODate()}</strong> → <strong>${sun.toISODate()}</strong></p>
-
-  <div class="box">
-    <a class="btn" href="/api/weekend" target="_blank" rel="noreferrer">API JSON</a>
-    <a class="btn" href="/api/weekend?offset=1" target="_blank" rel="noreferrer">Setmana que ve (JSON)</a>
-    <span class="muted">Pins: ${points.length}/${matches.length}</span>
+  <!-- Header -->
+  <div class="header">
+    <div class="container">
+      <h1>⚽ Sports Radar</h1>
+      <p>Calendari de partits de futbol de la comarca d'Osona</p>
+    </div>
   </div>
 
-  <div id="map"></div>
+  <div class="container">
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="label">Partits Totals</div>
+        <div class="value">${totalMatches}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Municipis</div>
+        <div class="value">${uniqueLocations}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Període</div>
+        <div class="value" style="font-size: 1rem;">${dateRange}</div>
+      </div>
+    </div>
 
-  <div class="box">
-    <h2 style="margin:0 0 8px">Partits</h2>
-    ${
-      matches.length === 0
-        ? "<p>No he trobat partits (o falten URLs de calendari per alguns equips).</p>"
-        : `<ul>${matches
-            .map((m) => {
-              const dt = DateTime.fromISO(m.datetimeISO, { zone: TZ });
-              const when = dt.isValid ? dt.toFormat("ccc dd/LL HH:mm") : m.datetimeISO;
-              const addr = m.address ? ` · ${m.address}` : "";
-              const acta = m.actaUrl ? ` · <a href="${m.actaUrl}" target="_blank" rel="noreferrer">acta</a>` : "";
-              return `<li>
-                <strong>${when}</strong> — ${m.home} vs ${m.away}<br/>
-                <small>${m.team}${addr}${acta}</small>
-              </li>`;
-            })
-            .join("")}</ul>`
-    }
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <div class="filter-buttons">
+        <button class="filter-btn active" data-filter="all">Tots els partits</button>
+        <button class="filter-btn" data-filter="today">Avui</button>
+        <button class="filter-btn" data-filter="tomorrow">Demà</button>
+      </div>
+      <div class="search-container">
+        <input
+          type="text"
+          class="search-input"
+          id="searchInput"
+          placeholder="Busca per equip o localitat..."
+        >
+      </div>
+    </div>
 
-    ${
-      data.warnings.length
-        ? `<p class="muted"><strong>Falten URLs FCF a:</strong><br/>
-           <code>${data.warnings
-             .filter((w) => w.startsWith("Falta URL FCF per:"))
-             .map((w) => w.replace("Falta URL FCF per: ", ""))
-             .join(", ")}</code></p>`
-        : ""
-    }
+    <!-- Map Section -->
+    <div class="map-section">
+      <div id="map"></div>
+    </div>
+
+    <!-- Match List -->
+    <div class="match-list" id="matchList"></div>
   </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="container">
+      <p>Sports Radar © 2026 — Prototip TFG</p>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/leaflet.markercluster.min.js"></script>
 
   <script>
-    const defaultLat = ${defaultLat};
-    const defaultLon = ${defaultLon};
-    const points = ${JSON.stringify(points)};
+    // Matches data from server
+    const matches = ${JSON.stringify(matches)};
+    const geoData = ${JSON.stringify(geoData)};
 
-    const map = L.map('map').setView([defaultLat, defaultLon], 11);
+    // Initialize map
+    const map = L.map('map').setView([41.95, 2.25], 11);
+
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap'
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19
     }).addTo(map);
 
-    const markers = [];
-    for (const p of points) {
-      const html = \`
-        <div style="max-width:260px">
-          <strong>\${p.title}</strong><br/>
-          <small>\${p.subtitle}</small><br/>
-          \${p.stadium ? "<div><small><b>Camp:</b> " + p.stadium + "</small></div>" : ""}
-          \${p.address ? "<div><small><b>Adreça:</b> " + p.address + "</small></div>" : ""}
-          \${p.actaUrl ? "<div style='margin-top:6px'><a href='" + p.actaUrl + "' target='_blank' rel='noreferrer'>Veure acta</a></div>" : ""}
-        </div>\`;
-      const mk = L.marker([p.lat, p.lon]).addTo(map).bindPopup(html);
-      markers.push(mk);
+    // Marker cluster group
+    const markerClusterGroup = L.markerClusterGroup({
+      maxClusterRadius: 50
+    });
+
+    // Add markers with custom styling
+    const markers = {};
+    geoData.forEach(feature => {
+      const { coordinates } = feature.geometry;
+      const props = feature.properties;
+
+      const marker = L.circleMarker([coordinates[1], coordinates[0]], {
+        radius: 8,
+        fillColor: '#1A73E8',
+        color: '#ffffff',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.8
+      });
+
+      const popupContent = \`
+        <div style="font-family: 'Inter', sans-serif;">
+          <div class="popup-title">\${props.home} vs \${props.away}</div>
+          <div class="popup-detail">📅 \${props.dateStr}</div>
+          <div class="popup-detail">🕐 \${props.time}</div>
+          <div class="popup-detail">📍 \${props.location}</div>
+          \${props.actaUrl ? \`<div class="popup-detail"><a href="\${props.actaUrl}" target="_blank" style="color: #2ECC71; text-decoration: none;">Ver acta</a></div>\` : ''}
+        </div>
+      \`;
+
+      marker.bindPopup(popupContent);
+      markerClusterGroup.addLayer(marker);
+      markers[props.title] = marker;
+    });
+
+    map.addLayer(markerClusterGroup);
+
+    // Filter functions
+    const filterState = {
+      current: 'all',
+      search: ''
+    };
+
+    function getDateOnly(dateStr) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      return { today, tomorrow };
     }
 
-    if (markers.length > 0) {
-      const group = L.featureGroup(markers);
-      map.fitBounds(group.getBounds().pad(0.2));
+    function matchesFilter(match) {
+      const { today, tomorrow } = getDateOnly();
+      const matchDate = new Date(match.date);
+      matchDate.setHours(0, 0, 0, 0);
+
+      // Date filter
+      if (filterState.current === 'today' && matchDate.getTime() !== today.getTime()) return false;
+      if (filterState.current === 'tomorrow' && matchDate.getTime() !== tomorrow.getTime()) return false;
+
+      // Search filter
+      if (filterState.search) {
+        const query = filterState.search.toLowerCase();
+        const matchesSearch =
+          match.home.toLowerCase().includes(query) ||
+          match.away.toLowerCase().includes(query) ||
+          match.location.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
+      }
+
+      return true;
     }
+
+    function renderMatches() {
+      const matchList = document.getElementById('matchList');
+      const filtered = matches.filter(matchesFilter);
+
+      matchList.innerHTML = filtered.length === 0
+        ? '<div class="no-results"><div class="no-results-icon">⚽</div><p>No es troben partits que coincideixin amb els filtres seleccionats.</p></div>'
+        : filtered.map(m => \`
+          <div class="match-card">
+            <div class="match-time">\${new Date(m.date).toLocaleDateString('ca-ES', { weekday: 'long', month: 'short', day: 'numeric' })} • \${m.time}</div>
+            <div class="match-teams">
+              <span class="team-name">\${m.home}</span>
+              <span class="vs-badge">VS</span>
+              <span class="team-name">\${m.away}</span>
+            </div>
+            <div class="match-details">
+              <div class="detail-item">
+                <span class="detail-icon">🕐</span>
+                <span>\${m.time}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-icon">📍</span>
+                <span>\${m.location}</span>
+              </div>
+            </div>
+            \${m.actaUrl ? \`<a href="\${m.actaUrl}" target="_blank" class="acta-link">Ver acta completa</a>\` : '<a class="acta-link disabled">Acta no disponible</a>'}
+          </div>
+        \`).join('');
+    }
+
+    // Event listeners for filters
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        filterState.current = e.target.dataset.filter;
+        renderMatches();
+      });
+    });
+
+    // Search input
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      filterState.search = e.target.value;
+      renderMatches();
+    });
+
+    // Initial render
+    renderMatches();
   </script>
 </body>
-</html>`);
+</html>`;
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(html);
+  } catch (error) {
+    console.error("Error rendering page:", error);
+    res.status(500).send("<h1>Error loading matches</h1><p>" + error.message + "</p>");
+  }
 });
 
-app.listen(PORT, () => {
-  console.log(`SPORTS RADAR (Mapa Futbol Osona) running on port ${PORT}`);
+/**
+ * GET /api/weekend - Returns upcoming weekend matches
+ */
+app.get("/api/weekend", async (req, res) => {
+  try {
+    const matches = await getAllMatches();
+    const now = DateTime.now().setZone(TZ);
+    const weekendStart = now.plus({ days: (5 - now.weekday) % 7 }).startOf("day");
+    const weekendEnd = weekendStart.plus({ days: 2 }).endOf("day");
+
+    const weekendMatches = matches.filter(m => {
+      const matchDate = DateTime.fromISO(m.date);
+      return matchDate >= weekendStart && matchDate <= weekendEnd;
+    });
+
+    res.json({
+      from: weekendStart.toISO(),
+      to: weekendEnd.toISO(),
+      matches: weekendMatches,
+      count: weekendMatches.length
+    });
+  } catch (error) {
+    console.error("Error fetching weekend matches:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
+
+// ==========================================
+// Start Server
+// ==========================================
+app.listen(PORT, () => {
+  console.log(\`Sports Radar running at http://localhost:\${PORT}\`);
+  console.log(\`Teams configured: \${TEAMS.length}\`);
 
