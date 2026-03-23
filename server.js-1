@@ -1,0 +1,878 @@
+import express from "express";
+import * as cheerio from "cheerio";
+import { DateTime } from "luxon";
+import fs from "fs";
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Configuration
+const TZ = "Europe/Madrid";
+const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
+
+// Teams array - all Osona region teams
+const TEAMS = [
+  // Vic
+  { team: "Vic", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-federacio/grup-v/vic-unio-esportiva-club-a" },
+  { team: "Fundació UE Vic", url: "" },
+  { team: "OAR Vic", url: "" },
+  { team: "FC Remei", url: "" },
+  { team: "Vic Riuprimer Refo Futbol Club", url: "" },
+  { team: "Manlleu", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/lliga-elit/grup-1/manlleu-aec-a" },
+  { team: "AEC Manlleu", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/lliga-elit/grup-1/manlleu-aec-a" },
+  { team: "AEC Manlleu B", url: "" },
+  { team: "CF Torelló", url: "https://www.fcf.cat/calendari-equip/2526/divisio-honor-cadet-s15/tercera-catalana/grup-4/torello-cf-b" },
+  { team: "CF Torelló B", url: "" },
+  { team: "UE Sant Vicenç de Torelló", url: "" },
+  { team: "CD Borgonyà", url: "" },
+  { team: "UE Santperenca", url: "" },
+  { team: "CE Roda de Ter", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/roda-de-ter-ce-a" },
+  { team: "CF Voltregà", url: "https://www.fcf.cat/calendari-equip/2526/divisio-honor-cadet-s15/tercera-catalana/grup-4/voltrega-cf-a" },
+  { team: "CF Vinyoles", url: "" },
+  { team: "CF La Gleva", url: "" },
+  { team: "UD Taradell", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/taradell-ud-a" },
+  { team: "UD Taradell B", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/quarta-catalana/grup-8/taradell-ud-b" },
+  { team: "UE Tona", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-federacio/grup-v/tona-ue-a" },
+  { team: "UE Tona C", url: "" },
+  { team: "CF Osona Sud", url: "" },
+  { team: "Atlètic Balenyà", url: "" },
+  { team: "CE Sant Miquel de Balenyà", url: "" },
+  { team: "UE Gurb", url: "https://www.fcf.cat/calendari-equip/2526/tercera-catalana/tercera-catalana/grup-4/gurb-ue-a" },
+  { team: "UE Gurb B", url: "" },
+  { team: "UE Gurb C", url: "" },
+  { team: "CF Calldetenes", url: "" },
+  { team: "Atlètic Riudeperes", url: "" },
+  { team: "UE Centelles", url: "" },
+  { team: "UE Centelles B", url: "" },
+  { team: "UE Seva", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-catalana/grup-4/seva-ue-a" },
+  { team: "UE Seva B", url: "" },
+  { team: "CE Aiguafreda", url: "" },
+  { team: "UD Sant Quirze de Besora", url: "https://www.fcf.cat/calendari-equip/2526/primera-federacio-futbol-femeni/tercera-catalana/grup-4/sant-quirze-besora-ud-a" },
+  { team: "CD Montesquiu", url: "" },
+  { team: "CF Folgueroles", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/folgueroles-cf-a" },
+  { team: "CF Sant Julià de Vilatorta", url: "" },
+  { team: "JE Santa Eugènia", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/santa-eugenia-je-a" },
+  { team: "UE Rupit i Pruit", url: "" },
+  { team: "AE Corcó", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-catalana/grup-4/corco-ae-a" },
+  { team: "UE Cantonigròs", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-catalana/grup-4/cantonigros-ue-a" },
+  { team: "FC Pradenc", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/pradenc-fc-a" },
+  { team: "CE Moià", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/moia-ce-a" },
+  { team: "CE Moià B", url: "" },
+  { team: "Olost FC", url: "" }
+];
+
+// Hardcoded team coordinates for Osona region
+const TEAM_COORDS = {
+  "vic": { lat: 41.9304, lon: 2.2546 },
+  "manlleu": { lat: 42.0026, lon: 2.2846 },
+  "torell": { lat: 42.0485, lon: 2.2627 },
+  "roda": { lat: 41.9823, lon: 2.3114 },
+  "taradell": { lat: 41.8758, lon: 2.2877 },
+  "tona": { lat: 41.8467, lon: 2.2275 },
+  "gurb": { lat: 41.9537, lon: 2.2358 },
+  "seva": { lat: 41.8375, lon: 2.2815 },
+  "besora": { lat: 42.1004, lon: 2.2237 },
+  "folgueroles": { lat: 41.9389, lon: 2.3181 },
+  "eugenia": { lat: 41.9009, lon: 2.2827 },
+  "cantonigros": { lat: 42.0418, lon: 2.3922 },
+  "moia": { lat: 41.8125, lon: 2.0987 },
+  "prades": { lat: 42.0088, lon: 2.0265 },
+  "olost": { lat: 42.0107, lon: 2.0959 }
+};
+
+// ==========================================
+// Cache & State
+// ==========================================
+let cachedMatches = [];
+let cacheTimestamp = null;
+const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+
+// ==========================================
+// Utility: Get match date object
+// ==========================================
+function getMatchDate(dateStr) {
+  try {
+    return DateTime.fromFormat(dateStr, "dd/MM/yyyy", { zone: TZ });
+  } catch {
+    return null;
+  }
+}
+
+// ==========================================
+// Geocoding: Find team coordinates
+// ==========================================
+function findCoordinatesByTeam(teamName) {
+  const normalized = teamName.toLowerCase();
+
+  // Check against hardcoded coordinates
+  for (const [key, coords] of Object.entries(TEAM_COORDS)) {
+    if (normalized.includes(key)) {
+      return coords;
+    }
+  }
+
+  // Fallback: if unknown, use center of Osona
+  return { lat: 41.95, lon: 2.25 };
+}
+
+// ==========================================
+// Scraping: Extract match data from FCF
+// ==========================================
+async function fetchMatchesForTeam(teamName, url) {
+  if (!url) return [];
+
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": UA },
+      timeout: 5000
+    });
+
+    if (!res.ok) return [];
+
+    const html = await res.text();
+    const $ = cheerio.load(html);
+    const matches = [];
+
+    // Parse FCF calendar table
+    $("table.table tbody tr").each((_, row) => {
+      const cells = $(row).find("td");
+      if (cells.length < 5) return;
+
+      const dateStr = cells.eq(0).text().trim();
+      const opponent = cells.eq(2).text().trim();
+      const location = cells.eq(3).text().trim();
+      const linkElement = cells.eq(4).find("a");
+      const actaUrl = linkElement.attr("href") || "";
+
+      if (!dateStr || !opponent) return;
+
+      const matchDate = getMatchDate(dateStr);
+      if (!matchDate) return;
+
+      const coords = findCoordinatesByTeam(location);
+
+      matches.push({
+        date: matchDate.toISOString(),
+        dateStr,
+        time: cells.eq(1).text().trim() || "TBD",
+        home: teamName,
+        away: opponent,
+        location,
+        lat: coords.lat,
+        lon: coords.lon,
+        actaUrl
+      });
+    });
+
+    return matches;
+  } catch (error) {
+    console.error(`Error fetching ${teamName}:`, error.message);
+    return [];
+  }
+}
+
+// ==========================================
+// Main: Fetch all matches (with caching)
+// ==========================================
+async function getAllMatches() {
+  // Return cached if fresh
+  if (cachedMatches.length > 0 && cacheTimestamp) {
+    const age = Date.now() - cacheTimestamp;
+    if (age < CACHE_DURATION_MS) {
+      console.log(`Using cached matches (${age / 1000 | 0}s old)`);
+      return cachedMatches;
+    }
+  }
+
+  console.log("Fetching matches from FCF...");
+  const allMatches = [];
+
+  // Fetch in parallel with Promise.all
+  const promises = TEAMS.map(({ team, url }) =>
+    fetchMatchesForTeam(team, url)
+  );
+
+  const results = await Promise.all(promises);
+  results.forEach(matches => allMatches.push(...matches));
+
+  // Deduplicate by (dateStr, home, away)
+  const seen = new Set();
+  const deduplicated = allMatches.filter(m => {
+    const key = `${m.dateStr}|${m.home}|${m.away}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  // Sort by date ascending
+  deduplicated.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  cachedMatches = deduplicated;
+  cacheTimestamp = Date.now();
+
+  console.log(`Loaded ${cachedMatches.length} matches`);
+  return cachedMatches;
+}
+
+// ==========================================
+// Routes
+// ==========================================
+
+/**
+ * GET / - Serves the main HTML page with embedded match data
+ */
+app.get("/", async (req, res) => {
+  try {
+    const matches = await getAllMatches();
+
+    // Convert matches to GeoJSON-like format for frontend
+    const geoData = matches.map(m => ({
+      type: "Feature",
+      geometry: {
+        type: "Point",
+        coordinates: [m.lon, m.lat]
+      },
+      properties: {
+        title: `${m.home} vs ${m.away}`,
+        time: m.time,
+        location: m.location,
+        dateStr: m.dateStr,
+        date: m.date,
+        home: m.home,
+        away: m.away,
+        actaUrl: m.actaUrl
+      }
+    }));
+
+    // Calculate stats
+    const totalMatches = matches.length;
+    const uniqueLocations = new Set(matches.map(m => m.location)).size;
+    const dateRange = matches.length > 0
+      ? `${matches[0].dateStr} - ${matches[matches.length - 1].dateStr}`
+      : "N/A";
+
+    // Build the HTML response
+    const html = `<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sports Radar Osona - Calendari de Partits</title>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+
+  <!-- Leaflet MarkerCluster CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/MarkerCluster.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/MarkerCluster.Default.min.css">
+
+  <style>
+    /* Reset & Base */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', sans-serif;
+      background-color: #f5f7fa;
+      color: #1a1a2e;
+    }
+
+    body {
+      overflow-x: hidden;
+    }
+
+    /* Container & Grid */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #1A73E8 0%, #1e5bad 100%);
+      color: white;
+      padding: 40px 0;
+      box-shadow: 0 4px 12px rgba(26, 115, 232, 0.15);
+      margin-bottom: 32px;
+    }
+
+    .header h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      font-size: 1rem;
+      opacity: 0.95;
+      font-weight: 300;
+      letter-spacing: 0.3px;
+    }
+
+    /* Stats Bar */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      border-left: 4px solid #1A73E8;
+      transition: all 0.3s ease;
+    }
+
+    .stat-card:hover {
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .stat-card .label {
+      font-size: 0.85rem;
+      color: #6b7280;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .stat-card .value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #1A73E8;
+    }
+
+    /* Filter Bar */
+    .filter-bar {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      margin-bottom: 32px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .filter-buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 10px 20px;
+      border: 2px solid #e5e7eb;
+      background: white;
+      color: #4b5563;
+      border-radius: 24px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      white-space: nowrap;
+    }
+
+    .filter-btn:hover {
+      border-color: #1A73E8;
+      color: #1A73E8;
+    }
+
+    .filter-btn.active {
+      background: #1A73E8;
+      color: white;
+      border-color: #1A73E8;
+    }
+
+    .search-container {
+      flex: 1;
+      min-width: 250px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 10px 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      transition: border-color 0.3s ease;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: #1A73E8;
+    }
+
+    /* Map Section */
+    .map-section {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      margin-bottom: 32px;
+    }
+
+    #map {
+      height: 600px;
+      width: 100%;
+    }
+
+    /* Match List */
+    .match-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+
+    .match-card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      transition: all 0.3s ease;
+      border-top: 4px solid #1A73E8;
+    }
+
+    .match-card:hover {
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+      transform: translateY(-4px);
+    }
+
+    .match-card.hidden {
+      display: none;
+    }
+
+    .match-time {
+      font-size: 0.85rem;
+      color: #6b7280;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    .match-teams {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .team-name {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #1a1a2e;
+      flex: 1;
+    }
+
+    .vs-badge {
+      background: #e5e7eb;
+      color: #4b5563;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .match-details {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .detail-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.95rem;
+      color: #4b5563;
+    }
+
+    .detail-icon {
+      font-size: 1.2rem;
+      margin-top: 2px;
+    }
+
+    .acta-link {
+      display: inline-block;
+      padding: 10px 16px;
+      background: #2ECC71;
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 500;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+      text-align: center;
+    }
+
+    .acta-link:hover {
+      background: #27ae60;
+      transform: translateY(-1px);
+    }
+
+    .acta-link.disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    /* Footer */
+    .footer {
+      background: #1a1a2e;
+      color: white;
+      text-align: center;
+      padding: 32px 0;
+      margin-top: 48px;
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+
+    /* Leaflet Popup Override */
+    .leaflet-popup-content-wrapper {
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    }
+
+    .leaflet-popup-content {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+    }
+
+    .popup-title {
+      font-weight: 600;
+      color: #1a1a2e;
+      margin-bottom: 8px;
+    }
+
+    .popup-detail {
+      color: #6b7280;
+      margin: 4px 0;
+      font-size: 0.85rem;
+    }
+
+    /* Loading Animation */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .match-card {
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .header h1 {
+        font-size: 1.8rem;
+      }
+
+      .filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .filter-buttons {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .search-container {
+        width: 100%;
+        min-width: auto;
+      }
+
+      .match-list {
+        grid-template-columns: 1fr;
+      }
+
+      #map {
+        height: 400px;
+      }
+
+      .stats-bar {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* No Results Message */
+    .no-results {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 40px;
+      color: #6b7280;
+    }
+
+    .no-results-icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="container">
+      <h1>⚽ Sports Radar</h1>
+      <p>Calendari de partits de futbol de la comarca d'Osona</p>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="label">Partits Totals</div>
+        <div class="value">${totalMatches}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Municipis</div>
+        <div class="value">${uniqueLocations}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Període</div>
+        <div class="value" style="font-size: 1rem;">${dateRange}</div>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <div class="filter-buttons">
+        <button class="filter-btn active" data-filter="all">Tots els partits</button>
+        <button class="filter-btn" data-filter="today">Avui</button>
+        <button class="filter-btn" data-filter="tomorrow">Demà</button>
+      </div>
+      <div class="search-container">
+        <input
+          type="text"
+          class="search-input"
+          id="searchInput"
+          placeholder="Busca per equip o localitat..."
+        >
+      </div>
+    </div>
+
+    <!-- Map Section -->
+    <div class="map-section">
+      <div id="map"></div>
+    </div>
+
+    <!-- Match List -->
+    <div class="match-list" id="matchList"></div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="container">
+      <p>Sports Radar © 2026 — Prototip TFG</p>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/leaflet.markercluster.min.js"></script>
+
+  <script>
+    // Matches data from server
+    const matches = ${JSON.stringify(matches)};
+    const geoData = ${JSON.stringify(geoData)};
+
+    // Initialize map
+    const map = L.map('map').setView([41.95, 2.25], 11);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19
+    }).addTo(map);
+
+    // Marker cluster group
+    const markerClusterGroup = L.markerClusterGroup({
+      maxClusterRadius: 50
+    });
+
+    // Add markers with custom styling
+    const markers = {};
+    geoData.forEach(feature => {
+      const { coordinates } = feature.geometry;
+      const props = feature.properties;
+
+      const marker = L.circleMarker([coordinates[1], coordinates[0]], {
+        radius: 8,
+        fillColor: '#1A73E8',
+        color: '#ffffff',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.8
+      });
+
+      const popupContent = \`
+        <div style="font-family: 'Inter', sans-serif;">
+          <div class="popup-title">\${props.home} vs \${props.away}</div>
+          <div class="popup-detail">📅 \${props.dateStr}</div>
+          <div class="popup-detail">🕐 \${props.time}</div>
+          <div class="popup-detail">📍 \${props.location}</div>
+          \${props.actaUrl ? \`<div class="popup-detail"><a href="\${props.actaUrl}" target="_blank" style="color: #2ECC71; text-decoration: none;">Ver acta</a></div>\` : ''}
+        </div>
+      \`;
+
+      marker.bindPopup(popupContent);
+      markerClusterGroup.addLayer(marker);
+      markers[props.title] = marker;
+    });
+
+    map.addLayer(markerClusterGroup);
+
+    // Filter functions
+    const filterState = {
+      current: 'all',
+      search: ''
+    };
+
+    function getDateOnly(dateStr) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      return { today, tomorrow };
+    }
+
+    function matchesFilter(match) {
+      const { today, tomorrow } = getDateOnly();
+      const matchDate = new Date(match.date);
+      matchDate.setHours(0, 0, 0, 0);
+
+      // Date filter
+      if (filterState.current === 'today' && matchDate.getTime() !== today.getTime()) return false;
+      if (filterState.current === 'tomorrow' && matchDate.getTime() !== tomorrow.getTime()) return false;
+
+      // Search filter
+      if (filterState.search) {
+        const query = filterState.search.toLowerCase();
+        const matchesSearch =
+          match.home.toLowerCase().includes(query) ||
+          match.away.toLowerCase().includes(query) ||
+          match.location.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
+      }
+
+      return true;
+    }
+
+    function renderMatches() {
+      const matchList = document.getElementById('matchList');
+      const filtered = matches.filter(matchesFilter);
+
+      matchList.innerHTML = filtered.length === 0
+        ? '<div class="no-results"><div class="no-results-icon">⚽</div><p>No es troben partits que coincideixin amb els filtres seleccionats.</p></div>'
+        : filtered.map(m => \`
+          <div class="match-card">
+            <div class="match-time">\${new Date(m.date).toLocaleDateString('ca-ES', { weekday: 'long', month: 'short', day: 'numeric' })} • \${m.time}</div>
+            <div class="match-teams">
+              <span class="team-name">\${m.home}</span>
+              <span class="vs-badge">VS</span>
+              <span class="team-name">\${m.away}</span>
+            </div>
+            <div class="match-details">
+              <div class="detail-item">
+                <span class="detail-icon">🕐</span>
+                <span>\${m.time}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-icon">📍</span>
+                <span>\${m.location}</span>
+              </div>
+            </div>
+            \${m.actaUrl ? \`<a href="\${m.actaUrl}" target="_blank" class="acta-link">Ver acta completa</a>\` : '<a class="acta-link disabled">Acta no disponible</a>'}
+          </div>
+        \`).join('');
+    }
+
+    // Event listeners for filters
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        filterState.current = e.target.dataset.filter;
+        renderMatches();
+      });
+    });
+
+    // Search input
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      filterState.search = e.target.value;
+      renderMatches();
+    });
+
+    // Initial render
+    renderMatches();
+  </script>
+</body>
+</html>`;
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(html);
+  } catch (error) {
+    console.error("Error rendering page:", error);
+    res.status(500).send("<h1>Error loading matches</h1><p>" + error.message + "</p>");
+  }
+});
+
+/**
+ * GET /api/weekend - Returns upcoming weekend matches
+ */
+app.get("/api/weekend", async (req, res) => {
+  try {
+    const matches = await getAllMatches();
+    const now = DateTime.now().setZone(TZ);
+    const weekendStart = now.plus({ days: (5 - now.weekday) % 7 }).startOf("day");
+    const weekendEnd = weekendStart.plus({ days: 2 }).endOf("day");
+
+    const weekendMatches = matches.filter(m => {
+      const matchDate = DateTime.fromISO(m.date);
+      return matchDate >= weekendStart && matchDate <= weekendEnd;
+    });
+
+    res.json({
+      from: weekendStart.toISO(),
+      to: weekendEnd.toISO(),
+      matches: weekendMatches,
+      count: weekendMatches.length
+    });
+  } catch (error) {
+    console.error("Error fetching weekend matches:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==========================================
+// Start Server
+// ==========================================
+app.listen(PORT, () => {
+  console.log(\`Sports Radar running at http://localhost:\${PORT}\`);
+  console.log(\`Teams configured: \${TEAMS.length}\`);
