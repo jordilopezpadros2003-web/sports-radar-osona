@@ -1,18 +1,21 @@
 import express from "express";
 import * as cheerio from "cheerio";
 import { DateTime } from "luxon";
-import fs from "fs";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuration
+// ==========================================
+// Config
+// ==========================================
 const TZ = "Europe/Madrid";
-const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
+const UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
 
-// Teams array - all Osona region teams
+// ==========================================
+// Teams
+// ==========================================
 const TEAMS = [
-  // Vic
   { team: "Vic", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-federacio/grup-v/vic-unio-esportiva-club-a" },
   { team: "Fundació UE Vic", url: "" },
   { team: "OAR Vic", url: "" },
@@ -61,88 +64,117 @@ const TEAMS = [
   { team: "Olost FC", url: "" }
 ];
 
-// Hardcoded team coordinates for Osona region
+// ==========================================
+// Coordinates
+// ==========================================
 const TEAM_COORDS = {
-  "vic": { lat: 41.9304, lon: 2.2546 },
-  "manlleu": { lat: 42.0026, lon: 2.2846 },
-  "torell": { lat: 42.0485, lon: 2.2627 },
-  "roda": { lat: 41.9823, lon: 2.3114 },
-  "taradell": { lat: 41.8758, lon: 2.2877 },
-  "tona": { lat: 41.8467, lon: 2.2275 },
-  "gurb": { lat: 41.9537, lon: 2.2358 },
-  "seva": { lat: 41.8375, lon: 2.2815 },
-  "besora": { lat: 42.1004, lon: 2.2237 },
-  "folgueroles": { lat: 41.9389, lon: 2.3181 },
-  "eugenia": { lat: 41.9009, lon: 2.2827 },
-  "cantonigros": { lat: 42.0418, lon: 2.3922 },
-  "moia": { lat: 41.8125, lon: 2.0987 },
-  "prades": { lat: 42.0088, lon: 2.0265 },
-  "olost": { lat: 42.0107, lon: 2.0959 }
+  vic: { lat: 41.9304, lon: 2.2546 },
+  manlleu: { lat: 42.0026, lon: 2.2846 },
+  torell: { lat: 42.0485, lon: 2.2627 },
+  roda: { lat: 41.9823, lon: 2.3114 },
+  taradell: { lat: 41.8758, lon: 2.2877 },
+  tona: { lat: 41.8467, lon: 2.2275 },
+  gurb: { lat: 41.9537, lon: 2.2358 },
+  seva: { lat: 41.8375, lon: 2.2815 },
+  besora: { lat: 42.1004, lon: 2.2237 },
+  folgueroles: { lat: 41.9389, lon: 2.3181 },
+  eugenia: { lat: 41.9009, lon: 2.2827 },
+  cantonigros: { lat: 42.0418, lon: 2.3922 },
+  moia: { lat: 41.8125, lon: 2.0987 },
+  prades: { lat: 42.0088, lon: 2.0265 },
+  olost: { lat: 42.0107, lon: 2.0959 }
 };
 
 // ==========================================
-// Cache & State
+// Cache
 // ==========================================
 let cachedMatches = [];
 let cacheTimestamp = null;
-const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION_MS = 5 * 60 * 1000;
 
 // ==========================================
-// Utility: Get match date object
+// Helpers
 // ==========================================
 function getMatchDate(dateStr) {
-  try {
-    return DateTime.fromFormat(dateStr, "dd/MM/yyyy", { zone: TZ });
-  } catch {
-    return null;
-  }
+  const dt = DateTime.fromFormat(dateStr, "dd/MM/yyyy", { zone: TZ });
+  return dt.isValid ? dt : null;
 }
 
-// ==========================================
-// Geocoding: Find team coordinates
-// ==========================================
-function findCoordinatesByTeam(teamName) {
-  const normalized = teamName.toLowerCase();
+function normalizeText(text = "") {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
 
-  // Check against hardcoded coordinates
+function findCoordinatesByTeam(teamName) {
+  const normalized = normalizeText(teamName);
+
   for (const [key, coords] of Object.entries(TEAM_COORDS)) {
     if (normalized.includes(key)) {
       return coords;
     }
   }
 
-  // Fallback: if unknown, use center of Osona
   return { lat: 41.95, lon: 2.25 };
 }
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = 5000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 // ==========================================
-// Scraping: Extract match data from FCF
+// Scraping
 // ==========================================
 async function fetchMatchesForTeam(teamName, url) {
   if (!url) return [];
 
   try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": UA },
-      timeout: 5000
-    });
+    console.log(`Fetching ${teamName} -> ${url}`);
 
-    if (!res.ok) return [];
+    const res = await fetchWithTimeout(
+      url,
+      {
+        headers: {
+          "User-Agent": UA
+        }
+      },
+      7000
+    );
+
+    if (!res.ok) {
+      console.warn(`HTTP ${res.status} for ${teamName}`);
+      return [];
+    }
 
     const html = await res.text();
     const $ = cheerio.load(html);
     const matches = [];
 
-    // Parse FCF calendar table
-    $("table.table tbody tr").each((_, row) => {
+    const rows = $("table.table tbody tr");
+    console.log(`${teamName}: rows found = ${rows.length}`);
+
+    rows.each((_, row) => {
       const cells = $(row).find("td");
       if (cells.length < 5) return;
 
       const dateStr = cells.eq(0).text().trim();
+      const time = cells.eq(1).text().trim() || "TBD";
       const opponent = cells.eq(2).text().trim();
-      const location = cells.eq(3).text().trim();
-      const linkElement = cells.eq(4).find("a");
-      const actaUrl = linkElement.attr("href") || "";
+      const location = cells.eq(3).text().trim() || "Ubicació no disponible";
+      const actaUrl = cells.eq(4).find("a").attr("href") || "";
 
       if (!dateStr || !opponent) return;
 
@@ -152,9 +184,10 @@ async function fetchMatchesForTeam(teamName, url) {
       const coords = findCoordinatesByTeam(location);
 
       matches.push({
-        date: matchDate.toISOString(),
+        date: matchDate.toISO(),
+        dayKey: matchDate.toFormat("yyyy-MM-dd"),
         dateStr,
-        time: cells.eq(1).text().trim() || "TBD",
+        time,
         home: teamName,
         away: opponent,
         location,
@@ -166,46 +199,43 @@ async function fetchMatchesForTeam(teamName, url) {
 
     return matches;
   } catch (error) {
-    console.error(`Error fetching ${teamName}:`, error.message);
+    console.error(`Error fetching ${teamName}: ${error.message}`);
     return [];
   }
 }
 
 // ==========================================
-// Main: Fetch all matches (with caching)
+// Main loader
 // ==========================================
 async function getAllMatches() {
-  // Return cached if fresh
   if (cachedMatches.length > 0 && cacheTimestamp) {
     const age = Date.now() - cacheTimestamp;
     if (age < CACHE_DURATION_MS) {
-      console.log(`Using cached matches (${age / 1000 | 0}s old)`);
+      console.log(`Using cache (${Math.floor(age / 1000)}s old)`);
       return cachedMatches;
     }
   }
 
-  console.log("Fetching matches from FCF...");
-  const allMatches = [];
+  console.log("Fetching all matches from FCF...");
 
-  // Fetch in parallel with Promise.all
-  const promises = TEAMS.map(({ team, url }) =>
-    fetchMatchesForTeam(team, url)
-  );
-
+  const promises = TEAMS.map(({ team, url }) => fetchMatchesForTeam(team, url));
   const results = await Promise.all(promises);
-  results.forEach(matches => allMatches.push(...matches));
 
-  // Deduplicate by (dateStr, home, away)
+  const allMatches = results.flat();
+
   const seen = new Set();
-  const deduplicated = allMatches.filter(m => {
-    const key = `${m.dateStr}|${m.home}|${m.away}`;
+  const deduplicated = allMatches.filter((m) => {
+    const key = `${m.dayKey}|${m.home}|${m.away}|${m.location}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 
-  // Sort by date ascending
-  deduplicated.sort((a, b) => new Date(a.date) - new Date(b.date));
+  deduplicated.sort((a, b) => {
+    const da = DateTime.fromISO(a.date);
+    const db = DateTime.fromISO(b.date);
+    return da.toMillis() - db.toMillis();
+  });
 
   cachedMatches = deduplicated;
   cacheTimestamp = Date.now();
@@ -215,18 +245,13 @@ async function getAllMatches() {
 }
 
 // ==========================================
-// Routes
+// Route: Home
 // ==========================================
-
-/**
- * GET / - Serves the main HTML page with embedded match data
- */
 app.get("/", async (req, res) => {
   try {
     const matches = await getAllMatches();
 
-    // Convert matches to GeoJSON-like format for frontend
-    const geoData = matches.map(m => ({
+    const geoData = matches.map((m) => ({
       type: "Feature",
       geometry: {
         type: "Point",
@@ -238,20 +263,20 @@ app.get("/", async (req, res) => {
         location: m.location,
         dateStr: m.dateStr,
         date: m.date,
+        dayKey: m.dayKey,
         home: m.home,
         away: m.away,
         actaUrl: m.actaUrl
       }
     }));
 
-    // Calculate stats
     const totalMatches = matches.length;
-    const uniqueLocations = new Set(matches.map(m => m.location)).size;
-    const dateRange = matches.length > 0
-      ? `${matches[0].dateStr} - ${matches[matches.length - 1].dateStr}`
-      : "N/A";
+    const uniqueLocations = new Set(matches.map((m) => m.location)).size;
+    const dateRange =
+      matches.length > 0
+        ? `${matches[0].dateStr} - ${matches[matches.length - 1].dateStr}`
+        : "N/A";
 
-    // Build the HTML response
     const html = `<!DOCTYPE html>
 <html lang="ca">
 <head>
@@ -259,43 +284,25 @@ app.get("/", async (req, res) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sports Radar Osona - Calendari de Partits</title>
 
-  <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-
-  <!-- Leaflet MarkerCluster CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/MarkerCluster.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/MarkerCluster.Default.min.css">
 
   <style>
-    /* Reset & Base */
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
       height: 100%;
       font-family: 'Inter', sans-serif;
       background-color: #f5f7fa;
       color: #1a1a2e;
     }
-
-    body {
-      overflow-x: hidden;
-    }
-
-    /* Container & Grid */
+    body { overflow-x: hidden; }
     .container {
       max-width: 1200px;
       margin: 0 auto;
       padding: 0 16px;
     }
-
-    /* Header */
     .header {
       background: linear-gradient(135deg, #1A73E8 0%, #1e5bad 100%);
       color: white;
@@ -303,29 +310,24 @@ app.get("/", async (req, res) => {
       box-shadow: 0 4px 12px rgba(26, 115, 232, 0.15);
       margin-bottom: 32px;
     }
-
     .header h1 {
       font-size: 2.5rem;
       font-weight: 700;
       letter-spacing: -0.5px;
       margin-bottom: 8px;
     }
-
     .header p {
       font-size: 1rem;
       opacity: 0.95;
       font-weight: 300;
       letter-spacing: 0.3px;
     }
-
-    /* Stats Bar */
     .stats-bar {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 16px;
       margin-bottom: 32px;
     }
-
     .stat-card {
       background: white;
       padding: 20px;
@@ -334,12 +336,10 @@ app.get("/", async (req, res) => {
       border-left: 4px solid #1A73E8;
       transition: all 0.3s ease;
     }
-
     .stat-card:hover {
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
       transform: translateY(-2px);
     }
-
     .stat-card .label {
       font-size: 0.85rem;
       color: #6b7280;
@@ -348,14 +348,11 @@ app.get("/", async (req, res) => {
       letter-spacing: 0.5px;
       margin-bottom: 8px;
     }
-
     .stat-card .value {
       font-size: 2rem;
       font-weight: 700;
       color: #1A73E8;
     }
-
-    /* Filter Bar */
     .filter-bar {
       background: white;
       padding: 20px;
@@ -367,13 +364,11 @@ app.get("/", async (req, res) => {
       gap: 12px;
       align-items: center;
     }
-
     .filter-buttons {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
     }
-
     .filter-btn {
       padding: 10px 20px;
       border: 2px solid #e5e7eb;
@@ -386,23 +381,19 @@ app.get("/", async (req, res) => {
       transition: all 0.3s ease;
       white-space: nowrap;
     }
-
     .filter-btn:hover {
       border-color: #1A73E8;
       color: #1A73E8;
     }
-
     .filter-btn.active {
       background: #1A73E8;
       color: white;
       border-color: #1A73E8;
     }
-
     .search-container {
       flex: 1;
       min-width: 250px;
     }
-
     .search-input {
       width: 100%;
       padding: 10px 16px;
@@ -411,13 +402,10 @@ app.get("/", async (req, res) => {
       font-size: 0.95rem;
       transition: border-color 0.3s ease;
     }
-
     .search-input:focus {
       outline: none;
       border-color: #1A73E8;
     }
-
-    /* Map Section */
     .map-section {
       background: white;
       border-radius: 12px;
@@ -425,20 +413,16 @@ app.get("/", async (req, res) => {
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
       margin-bottom: 32px;
     }
-
     #map {
       height: 600px;
       width: 100%;
     }
-
-    /* Match List */
     .match-list {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
       gap: 20px;
       margin-bottom: 40px;
     }
-
     .match-card {
       background: white;
       border-radius: 12px;
@@ -446,17 +430,12 @@ app.get("/", async (req, res) => {
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
       transition: all 0.3s ease;
       border-top: 4px solid #1A73E8;
+      animation: fadeIn 0.5s ease-out;
     }
-
     .match-card:hover {
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
       transform: translateY(-4px);
     }
-
-    .match-card.hidden {
-      display: none;
-    }
-
     .match-time {
       font-size: 0.85rem;
       color: #6b7280;
@@ -465,21 +444,18 @@ app.get("/", async (req, res) => {
       letter-spacing: 0.5px;
       margin-bottom: 12px;
     }
-
     .match-teams {
       display: flex;
       align-items: center;
       gap: 12px;
       margin-bottom: 16px;
     }
-
     .team-name {
       font-size: 1.1rem;
       font-weight: 600;
       color: #1a1a2e;
       flex: 1;
     }
-
     .vs-badge {
       background: #e5e7eb;
       color: #4b5563;
@@ -488,7 +464,6 @@ app.get("/", async (req, res) => {
       font-size: 0.75rem;
       font-weight: 600;
     }
-
     .match-details {
       display: flex;
       flex-direction: column;
@@ -497,7 +472,6 @@ app.get("/", async (req, res) => {
       padding-bottom: 16px;
       border-bottom: 1px solid #e5e7eb;
     }
-
     .detail-item {
       display: flex;
       align-items: flex-start;
@@ -505,12 +479,10 @@ app.get("/", async (req, res) => {
       font-size: 0.95rem;
       color: #4b5563;
     }
-
     .detail-icon {
       font-size: 1.2rem;
       margin-top: 2px;
     }
-
     .acta-link {
       display: inline-block;
       padding: 10px 16px;
@@ -523,19 +495,15 @@ app.get("/", async (req, res) => {
       transition: all 0.3s ease;
       text-align: center;
     }
-
     .acta-link:hover {
       background: #27ae60;
       transform: translateY(-1px);
     }
-
     .acta-link.disabled {
       background: #ccc;
       cursor: not-allowed;
       pointer-events: none;
     }
-
-    /* Footer */
     .footer {
       background: #1a1a2e;
       color: white;
@@ -545,96 +513,61 @@ app.get("/", async (req, res) => {
       font-size: 0.9rem;
       opacity: 0.9;
     }
-
-    /* Leaflet Popup Override */
     .leaflet-popup-content-wrapper {
       border-radius: 12px;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
     }
-
     .leaflet-popup-content {
       font-family: 'Inter', sans-serif;
       font-size: 0.95rem;
     }
-
     .popup-title {
       font-weight: 600;
       color: #1a1a2e;
       margin-bottom: 8px;
     }
-
     .popup-detail {
       color: #6b7280;
       margin: 4px 0;
       font-size: 0.85rem;
     }
-
-    /* Loading Animation */
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .match-card {
-      animation: fadeIn 0.5s ease-out;
-    }
-
-    /* Responsive Design */
-    @media (max-width: 768px) {
-      .header h1 {
-        font-size: 1.8rem;
-      }
-
-      .filter-bar {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .filter-buttons {
-        width: 100%;
-        justify-content: center;
-      }
-
-      .search-container {
-        width: 100%;
-        min-width: auto;
-      }
-
-      .match-list {
-        grid-template-columns: 1fr;
-      }
-
-      #map {
-        height: 400px;
-      }
-
-      .stats-bar {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    /* No Results Message */
     .no-results {
       grid-column: 1 / -1;
       text-align: center;
       padding: 40px;
       color: #6b7280;
     }
-
     .no-results-icon {
       font-size: 3rem;
       margin-bottom: 16px;
     }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (max-width: 768px) {
+      .header h1 { font-size: 1.8rem; }
+      .filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .filter-buttons {
+        width: 100%;
+        justify-content: center;
+      }
+      .search-container {
+        width: 100%;
+        min-width: auto;
+      }
+      .match-list {
+        grid-template-columns: 1fr;
+      }
+      #map { height: 400px; }
+      .stats-bar { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
-  <!-- Header -->
   <div class="header">
     <div class="container">
       <h1>⚽ Sports Radar</h1>
@@ -643,7 +576,6 @@ app.get("/", async (req, res) => {
   </div>
 
   <div class="container">
-    <!-- Stats Bar -->
     <div class="stats-bar">
       <div class="stat-card">
         <div class="label">Partits Totals</div>
@@ -659,7 +591,6 @@ app.get("/", async (req, res) => {
       </div>
     </div>
 
-    <!-- Filter Bar -->
     <div class="filter-bar">
       <div class="filter-buttons">
         <button class="filter-btn active" data-filter="all">Tots els partits</button>
@@ -676,32 +607,26 @@ app.get("/", async (req, res) => {
       </div>
     </div>
 
-    <!-- Map Section -->
     <div class="map-section">
       <div id="map"></div>
     </div>
 
-    <!-- Match List -->
     <div class="match-list" id="matchList"></div>
   </div>
 
-  <!-- Footer -->
   <div class="footer">
     <div class="container">
       <p>Sports Radar © 2026 — Prototip TFG</p>
     </div>
   </div>
 
-  <!-- Scripts -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/leaflet.markercluster.min.js"></script>
 
   <script>
-    // Matches data from server
     const matches = ${JSON.stringify(matches)};
     const geoData = ${JSON.stringify(geoData)};
 
-    // Initialize map
     const map = L.map('map').setView([41.95, 2.25], 11);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -709,13 +634,10 @@ app.get("/", async (req, res) => {
       maxZoom: 19
     }).addTo(map);
 
-    // Marker cluster group
     const markerClusterGroup = L.markerClusterGroup({
       maxClusterRadius: 50
     });
 
-    // Add markers with custom styling
-    const markers = {};
     geoData.forEach(feature => {
       const { coordinates } = feature.geometry;
       const props = feature.properties;
@@ -741,44 +663,47 @@ app.get("/", async (req, res) => {
 
       marker.bindPopup(popupContent);
       markerClusterGroup.addLayer(marker);
-      markers[props.title] = marker;
     });
 
     map.addLayer(markerClusterGroup);
 
-    // Filter functions
     const filterState = {
       current: 'all',
       search: ''
     };
 
-    function getDateOnly(dateStr) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+    function getTodayKey() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      return \`\${year}-\${month}-\${day}\`;
+    }
 
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      return { today, tomorrow };
+    function getTomorrowKey() {
+      const now = new Date();
+      now.setDate(now.getDate() + 1);
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      return \`\${year}-\${month}-\${day}\`;
     }
 
     function matchesFilter(match) {
-      const { today, tomorrow } = getDateOnly();
-      const matchDate = new Date(match.date);
-      matchDate.setHours(0, 0, 0, 0);
+      const todayKey = getTodayKey();
+      const tomorrowKey = getTomorrowKey();
 
-      // Date filter
-      if (filterState.current === 'today' && matchDate.getTime() !== today.getTime()) return false;
-      if (filterState.current === 'tomorrow' && matchDate.getTime() !== tomorrow.getTime()) return false;
+      if (filterState.current === 'today' && match.dayKey !== todayKey) return false;
+      if (filterState.current === 'tomorrow' && match.dayKey !== tomorrowKey) return false;
 
-      // Search filter
       if (filterState.search) {
         const query = filterState.search.toLowerCase();
-        const matchesSearch =
+        const ok =
           match.home.toLowerCase().includes(query) ||
           match.away.toLowerCase().includes(query) ||
           match.location.toLowerCase().includes(query);
-        if (!matchesSearch) return false;
+
+        if (!ok) return false;
       }
 
       return true;
@@ -808,12 +733,13 @@ app.get("/", async (req, res) => {
                 <span>\${m.location}</span>
               </div>
             </div>
-            \${m.actaUrl ? \`<a href="\${m.actaUrl}" target="_blank" class="acta-link">Ver acta completa</a>\` : '<a class="acta-link disabled">Acta no disponible</a>'}
+            \${m.actaUrl
+              ? \`<a href="\${m.actaUrl}" target="_blank" class="acta-link">Ver acta completa</a>\`
+              : '<a class="acta-link disabled">Acta no disponible</a>'}
           </div>
         \`).join('');
     }
 
-    // Event listeners for filters
     document.querySelectorAll('.filter-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -823,13 +749,11 @@ app.get("/", async (req, res) => {
       });
     });
 
-    // Search input
     document.getElementById('searchInput').addEventListener('input', (e) => {
       filterState.search = e.target.value;
       renderMatches();
     });
 
-    // Initial render
     renderMatches();
   </script>
 </body>
@@ -839,23 +763,27 @@ app.get("/", async (req, res) => {
     res.send(html);
   } catch (error) {
     console.error("Error rendering page:", error);
-    res.status(500).send("<h1>Error loading matches</h1><p>" + error.message + "</p>");
+    res.status(500).send(
+      "<h1>Error loading matches</h1><p>" + error.message + "</p>"
+    );
   }
 });
 
-/**
- * GET /api/weekend - Returns upcoming weekend matches
- */
+// ==========================================
+// Route: Weekend API
+// ==========================================
 app.get("/api/weekend", async (req, res) => {
   try {
     const matches = await getAllMatches();
     const now = DateTime.now().setZone(TZ);
-    const weekendStart = now.plus({ days: (5 - now.weekday) % 7 }).startOf("day");
-    const weekendEnd = weekendStart.plus({ days: 2 }).endOf("day");
 
-    const weekendMatches = matches.filter(m => {
-      const matchDate = DateTime.fromISO(m.date);
-      return matchDate >= weekendStart && matchDate <= weekendEnd;
+    const daysUntilSaturday = (6 - now.weekday + 7) % 7;
+    const weekendStart = now.plus({ days: daysUntilSaturday }).startOf("day");
+    const weekendEnd = weekendStart.plus({ days: 1 }).endOf("day");
+
+    const weekendMatches = matches.filter((m) => {
+      const matchDate = DateTime.fromISO(m.date, { zone: TZ });
+      return matchDate.isValid && matchDate >= weekendStart && matchDate <= weekendEnd;
     });
 
     res.json({
@@ -871,9 +799,22 @@ app.get("/api/weekend", async (req, res) => {
 });
 
 // ==========================================
-// Start Server
+// Healthcheck
+// ==========================================
+app.get("/api/health", (req, res) => {
+  res.json({
+    ok: true,
+    app: "Sports Radar",
+    time: DateTime.now().setZone(TZ).toISO(),
+    cachedMatches: cachedMatches.length,
+    cacheTimestamp
+  });
+});
+
+// ==========================================
+// Start server
 // ==========================================
 app.listen(PORT, () => {
   console.log(\`Sports Radar running at http://localhost:\${PORT}\`);
   console.log(\`Teams configured: \${TEAMS.length}\`);
-
+});
