@@ -815,6 +815,6 @@ app.get("/api/health", (req, res) => {
 // Start server
 // ==========================================
 app.listen(PORT, () => {
-  console.log(\`Sports Radar running at http://localhost:\${PORT}\`);
-  console.log(\`Teams configured: \${TEAMS.length}\`);
+  console.log(`Sports Radar running at http://localhost:${PORT}`);
+  console.log(`Teams configured: ${TEAMS.length}`);
 });
