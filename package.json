@@ -1,13 +1,15 @@
 {
-  "name": "sports-radar",
+  "name": "sports-radar-osona",
   "version": "1.0.0",
   "type": "module",
-  "main": "app.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node app.js"
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": "20.x"
   },
   "dependencies": {
-    "cheerio": "^1.0.0",
     "express": "^4.19.2",
     "luxon": "^3.5.0"
   }
