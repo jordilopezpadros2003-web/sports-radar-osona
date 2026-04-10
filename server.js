@@ -5,9 +5,6 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const TZ = "Europe/Madrid";
 
-// ==========================================
-// Mock matches per garantir que surtin pins
-// ==========================================
 async function getAllMatches() {
   return [
     {
@@ -73,9 +70,6 @@ async function getAllMatches() {
   ];
 }
 
-// ==========================================
-// Route: Home
-// ==========================================
 app.get("/", async (req, res) => {
   try {
     const matches = await getAllMatches();
@@ -379,7 +373,6 @@ app.get("/", async (req, res) => {
 
   <script>
     const matches = ${JSON.stringify(matches)};
-    console.log("matches:", matches);
 
     const map = L.map('map').setView([41.95, 2.25], 11);
 
@@ -505,13 +498,11 @@ app.get("/", async (req, res) => {
   }
 });
 
-// ==========================================
-// Debug
-// ==========================================
 app.get("/api/debug", async (req, res) => {
   try {
     const matches = await getAllMatches();
     res.json({
+      ok: true,
       total: matches.length,
       sample: matches.slice(0, 10)
     });
@@ -520,9 +511,6 @@ app.get("/api/debug", async (req, res) => {
   }
 });
 
-// ==========================================
-// Healthcheck
-// ==========================================
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
@@ -531,9 +519,6 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// ==========================================
-// Start server
-// ==========================================
 app.listen(PORT, () => {
   console.log(`Sports Radar running at http://localhost:${PORT}`);
 });
