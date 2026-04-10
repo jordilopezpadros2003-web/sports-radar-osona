@@ -1,267 +1,76 @@
 import express from "express";
-import * as cheerio from "cheerio";
 import { DateTime } from "luxon";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-// ==========================================
-// Config
-// ==========================================
 const TZ = "Europe/Madrid";
-const UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
 
 // ==========================================
-// Teams
-// ==========================================
-const TEAMS = [
-  { team: "Vic", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-federacio/grup-v/vic-unio-esportiva-club-a" },
-  { team: "Fundació UE Vic", url: "" },
-  { team: "OAR Vic", url: "" },
-  { team: "FC Remei", url: "" },
-  { team: "Vic Riuprimer Refo Futbol Club", url: "" },
-  { team: "Manlleu", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/lliga-elit/grup-1/manlleu-aec-a" },
-  { team: "AEC Manlleu", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/lliga-elit/grup-1/manlleu-aec-a" },
-  { team: "AEC Manlleu B", url: "" },
-  { team: "CF Torelló", url: "https://www.fcf.cat/calendari-equip/2526/divisio-honor-cadet-s15/tercera-catalana/grup-4/torello-cf-b" },
-  { team: "CF Torelló B", url: "" },
-  { team: "UE Sant Vicenç de Torelló", url: "" },
-  { team: "CD Borgonyà", url: "" },
-  { team: "UE Santperenca", url: "" },
-  { team: "CE Roda de Ter", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/roda-de-ter-ce-a" },
-  { team: "CF Voltregà", url: "https://www.fcf.cat/calendari-equip/2526/divisio-honor-cadet-s15/tercera-catalana/grup-4/voltrega-cf-a" },
-  { team: "CF Vinyoles", url: "" },
-  { team: "CF La Gleva", url: "" },
-  { team: "UD Taradell", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/taradell-ud-a" },
-  { team: "UD Taradell B", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/quarta-catalana/grup-8/taradell-ud-b" },
-  { team: "UE Tona", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-federacio/grup-v/tona-ue-a" },
-  { team: "UE Tona C", url: "" },
-  { team: "CF Osona Sud", url: "" },
-  { team: "Atlètic Balenyà", url: "" },
-  { team: "CE Sant Miquel de Balenyà", url: "" },
-  { team: "UE Gurb", url: "https://www.fcf.cat/calendari-equip/2526/tercera-catalana/tercera-catalana/grup-4/gurb-ue-a" },
-  { team: "UE Gurb B", url: "" },
-  { team: "UE Gurb C", url: "" },
-  { team: "CF Calldetenes", url: "" },
-  { team: "Atlètic Riudeperes", url: "" },
-  { team: "UE Centelles", url: "" },
-  { team: "UE Centelles B", url: "" },
-  { team: "UE Seva", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-catalana/grup-4/seva-ue-a" },
-  { team: "UE Seva B", url: "" },
-  { team: "CE Aiguafreda", url: "" },
-  { team: "UD Sant Quirze de Besora", url: "https://www.fcf.cat/calendari-equip/2526/primera-federacio-futbol-femeni/tercera-catalana/grup-4/sant-quirze-besora-ud-a" },
-  { team: "CD Montesquiu", url: "" },
-  { team: "CF Folgueroles", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/folgueroles-cf-a" },
-  { team: "CF Sant Julià de Vilatorta", url: "" },
-  { team: "JE Santa Eugènia", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/santa-eugenia-je-a" },
-  { team: "UE Rupit i Pruit", url: "" },
-  { team: "AE Corcó", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-catalana/grup-4/corco-ae-a" },
-  { team: "UE Cantonigròs", url: "https://www.fcf.cat/calendari-equip/2526/futbol-11/tercera-catalana/grup-4/cantonigros-ue-a" },
-  { team: "FC Pradenc", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/pradenc-fc-a" },
-  { team: "CE Moià", url: "https://www.fcf.cat/calendari-equip/2526/futbol11/tercera-catalana/grup-4/moia-ce-a" },
-  { team: "CE Moià B", url: "" },
-  { team: "Olost FC", url: "" }
-];
-
-// ==========================================
-// Coordinates
-// ==========================================
-const TEAM_COORDS = {
-  vic: { lat: 41.9304, lon: 2.2546 },
-  manlleu: { lat: 42.0026, lon: 2.2846 },
-  torello: { lat: 42.0485, lon: 2.2627 },
-  roda: { lat: 41.9823, lon: 2.3114 },
-  taradell: { lat: 41.8758, lon: 2.2877 },
-  tona: { lat: 41.8467, lon: 2.2275 },
-  gurb: { lat: 41.9537, lon: 2.2358 },
-  seva: { lat: 41.8375, lon: 2.2815 },
-  besora: { lat: 42.1004, lon: 2.2237 },
-  folgueroles: { lat: 41.9389, lon: 2.3181 },
-  eugenia: { lat: 41.9009, lon: 2.2827 },
-  cantonigros: { lat: 42.0418, lon: 2.3922 },
-  moia: { lat: 41.8125, lon: 2.0987 },
-  pradenc: { lat: 42.0088, lon: 2.0265 },
-  olost: { lat: 42.0107, lon: 2.0959 }
-};
-
-// ==========================================
-// Cache
-// ==========================================
-let cachedMatches = [];
-let cacheTimestamp = null;
-const CACHE_DURATION_MS = 5 * 60 * 1000;
-
-// ==========================================
-// Helpers
-// ==========================================
-function getMatchDate(dateStr) {
-  const dt = DateTime.fromFormat(dateStr, "dd/MM/yyyy", { zone: TZ });
-  return dt.isValid ? dt : null;
-}
-
-function normalizeText(text = "") {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-}
-
-function findCoordinatesByTeam(teamName = "") {
-  const normalized = normalizeText(teamName);
-
-  for (const [key, coords] of Object.entries(TEAM_COORDS)) {
-    if (normalized.includes(key)) {
-      return coords;
-    }
-  }
-
-  return null;
-}
-
-async function fetchWithTimeout(url, options = {}, timeoutMs = 5000) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal
-    });
-    return response;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-// ==========================================
-// Scraping
-// ==========================================
-async function fetchMatchesForTeam(teamName, url) {
-  if (!url) return [];
-
-  try {
-    console.log(`Fetching ${teamName} -> ${url}`);
-
-    const res = await fetchWithTimeout(
-      url,
-      {
-        headers: {
-          "User-Agent": UA,
-          "Accept-Language": "ca-ES,ca;q=0.9,es;q=0.8,en;q=0.7"
-        }
-      },
-      10000
-    );
-
-    if (!res.ok) {
-      console.warn(`HTTP ${res.status} for ${teamName}`);
-      return [];
-    }
-
-    const html = await res.text();
-    const $ = cheerio.load(html);
-    const matches = [];
-
-    let rows = $("table.table tbody tr");
-    if (!rows.length) rows = $("table tbody tr");
-    if (!rows.length) rows = $(".table-responsive table tbody tr");
-    if (!rows.length) rows = $("tr");
-
-    console.log(`${teamName}: rows found = ${rows.length}`);
-
-    rows.each((_, row) => {
-      const cells = $(row).find("td");
-      if (cells.length < 4) return;
-
-      const dateStr = cells.eq(0).text().trim();
-      const time = cells.eq(1).text().trim() || "TBD";
-      const opponent = cells.eq(2).text().trim();
-      const location = cells.eq(3).text().trim() || "Ubicació no disponible";
-      const actaHref = cells.eq(4).find("a").attr("href") || "";
-
-      if (!dateStr || !opponent) return;
-
-      const matchDate = getMatchDate(dateStr);
-      if (!matchDate || !matchDate.isValid) return;
-
-      let coords = findCoordinatesByTeam(location);
-      if (!coords) coords = findCoordinatesByTeam(teamName);
-      if (!coords) coords = { lat: 41.95, lon: 2.25 };
-
-      const actaUrl = actaHref
-        ? actaHref.startsWith("http")
-          ? actaHref
-          : `https://www.fcf.cat${actaHref}`
-        : "";
-
-      matches.push({
-        date: matchDate.toISO(),
-        dayKey: matchDate.toFormat("yyyy-MM-dd"),
-        dateStr,
-        time,
-        home: teamName,
-        away: opponent,
-        location,
-        lat: coords.lat,
-        lon: coords.lon,
-        actaUrl
-      });
-    });
-
-    console.log(`${teamName}: matches parsed = ${matches.length}`);
-    return matches;
-  } catch (error) {
-    console.error(`Error fetching ${teamName}: ${error.message}`);
-    return [];
-  }
-}
-
-// ==========================================
-// Main loader
+// Mock matches per garantir que surtin pins
 // ==========================================
 async function getAllMatches() {
-  if (cachedMatches.length > 0 && cacheTimestamp) {
-    const age = Date.now() - cacheTimestamp;
-    if (age < CACHE_DURATION_MS) {
-      console.log(`Using cache (${Math.floor(age / 1000)}s old)`);
-      return cachedMatches;
+  return [
+    {
+      date: "2026-04-11T16:00:00.000+02:00",
+      dayKey: "2026-04-11",
+      dateStr: "11/04/2026",
+      time: "16:00",
+      home: "Vic",
+      away: "Manlleu",
+      location: "Vic",
+      lat: 41.9304,
+      lon: 2.2546,
+      actaUrl: ""
+    },
+    {
+      date: "2026-04-12T17:00:00.000+02:00",
+      dayKey: "2026-04-12",
+      dateStr: "12/04/2026",
+      time: "17:00",
+      home: "UE Tona",
+      away: "UD Taradell",
+      location: "Tona",
+      lat: 41.8467,
+      lon: 2.2275,
+      actaUrl: ""
+    },
+    {
+      date: "2026-04-13T18:30:00.000+02:00",
+      dayKey: "2026-04-13",
+      dateStr: "13/04/2026",
+      time: "18:30",
+      home: "Manlleu",
+      away: "UE Gurb",
+      location: "Manlleu",
+      lat: 42.0026,
+      lon: 2.2846,
+      actaUrl: ""
+    },
+    {
+      date: "2026-04-14T19:00:00.000+02:00",
+      dayKey: "2026-04-14",
+      dateStr: "14/04/2026",
+      time: "19:00",
+      home: "CF Torelló",
+      away: "CE Roda de Ter",
+      location: "Torelló",
+      lat: 42.0485,
+      lon: 2.2627,
+      actaUrl: ""
+    },
+    {
+      date: "2026-04-15T18:00:00.000+02:00",
+      dayKey: "2026-04-15",
+      dateStr: "15/04/2026",
+      time: "18:00",
+      home: "CF Folgueroles",
+      away: "JE Santa Eugènia",
+      location: "Folgueroles",
+      lat: 41.9389,
+      lon: 2.3181,
+      actaUrl: ""
     }
-  }
-
-  console.log("Fetching all matches from FCF...");
-
-  const validTeams = TEAMS.filter(
-    ({ url }) => url && url.startsWith("https://www.fcf.cat/")
-  );
-
-  const promises = validTeams.map(({ team, url }) =>
-    fetchMatchesForTeam(team, url)
-  );
-
-  const results = await Promise.all(promises);
-  const allMatches = results.flat();
-
-  const seen = new Set();
-  const deduplicated = allMatches.filter((m) => {
-    const key = `${m.dayKey}|${m.home}|${m.away}|${m.location}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-
-  deduplicated.sort((a, b) => {
-    const da = DateTime.fromISO(a.date);
-    const db = DateTime.fromISO(b.date);
-    return da.toMillis() - db.toMillis();
-  });
-
-  cachedMatches = deduplicated;
-  cacheTimestamp = Date.now();
-
-  console.log(`Loaded ${cachedMatches.length} matches`);
-  return cachedMatches;
+  ];
 }
 
 // ==========================================
@@ -270,25 +79,6 @@ async function getAllMatches() {
 app.get("/", async (req, res) => {
   try {
     const matches = await getAllMatches();
-
-    const geoData = matches.map((m) => ({
-      type: "Feature",
-      geometry: {
-        type: "Point",
-        coordinates: [m.lon, m.lat]
-      },
-      properties: {
-        title: `${m.home} vs ${m.away}`,
-        time: m.time,
-        location: m.location,
-        dateStr: m.dateStr,
-        date: m.date,
-        dayKey: m.dayKey,
-        home: m.home,
-        away: m.away,
-        actaUrl: m.actaUrl
-      }
-    }));
 
     const totalMatches = matches.length;
     const uniqueLocations = new Set(matches.map((m) => m.location)).size;
@@ -333,14 +123,12 @@ app.get("/", async (req, res) => {
     .header h1 {
       font-size: 2.5rem;
       font-weight: 700;
-      letter-spacing: -0.5px;
       margin-bottom: 8px;
     }
     .header p {
       font-size: 1rem;
       opacity: 0.95;
       font-weight: 300;
-      letter-spacing: 0.3px;
     }
     .stats-bar {
       display: grid;
@@ -354,18 +142,12 @@ app.get("/", async (req, res) => {
       border-radius: 12px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
       border-left: 4px solid #1A73E8;
-      transition: all 0.3s ease;
-    }
-    .stat-card:hover {
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-      transform: translateY(-2px);
     }
     .stat-card .label {
       font-size: 0.85rem;
       color: #6b7280;
       font-weight: 500;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
       margin-bottom: 8px;
     }
     .stat-card .value {
@@ -398,12 +180,6 @@ app.get("/", async (req, res) => {
       cursor: pointer;
       font-size: 0.95rem;
       font-weight: 500;
-      transition: all 0.3s ease;
-      white-space: nowrap;
-    }
-    .filter-btn:hover {
-      border-color: #1A73E8;
-      color: #1A73E8;
     }
     .filter-btn.active {
       background: #1A73E8;
@@ -420,11 +196,6 @@ app.get("/", async (req, res) => {
       border: 2px solid #e5e7eb;
       border-radius: 8px;
       font-size: 0.95rem;
-      transition: border-color 0.3s ease;
-    }
-    .search-input:focus {
-      outline: none;
-      border-color: #1A73E8;
     }
     .map-section {
       background: white;
@@ -448,20 +219,12 @@ app.get("/", async (req, res) => {
       border-radius: 12px;
       padding: 24px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-      transition: all 0.3s ease;
       border-top: 4px solid #1A73E8;
-      animation: fadeIn 0.5s ease-out;
-    }
-    .match-card:hover {
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-      transform: translateY(-4px);
     }
     .match-time {
       font-size: 0.85rem;
       color: #6b7280;
       font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
       margin-bottom: 12px;
     }
     .match-teams {
@@ -499,10 +262,6 @@ app.get("/", async (req, res) => {
       font-size: 0.95rem;
       color: #4b5563;
     }
-    .detail-icon {
-      font-size: 1.2rem;
-      margin-top: 2px;
-    }
     .acta-link {
       display: inline-block;
       padding: 10px 16px;
@@ -512,12 +271,7 @@ app.get("/", async (req, res) => {
       border-radius: 8px;
       font-weight: 500;
       font-size: 0.9rem;
-      transition: all 0.3s ease;
       text-align: center;
-    }
-    .acta-link:hover {
-      background: #27ae60;
-      transform: translateY(-1px);
     }
     .acta-link.disabled {
       background: #ccc;
@@ -532,14 +286,6 @@ app.get("/", async (req, res) => {
       margin-top: 48px;
       font-size: 0.9rem;
       opacity: 0.9;
-    }
-    .leaflet-popup-content-wrapper {
-      border-radius: 12px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-    }
-    .leaflet-popup-content {
-      font-family: 'Inter', sans-serif;
-      font-size: 0.95rem;
     }
     .popup-title {
       font-weight: 600;
@@ -557,23 +303,11 @@ app.get("/", async (req, res) => {
       padding: 40px;
       color: #6b7280;
     }
-    .no-results-icon {
-      font-size: 3rem;
-      margin-bottom: 16px;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
     @media (max-width: 768px) {
       .header h1 { font-size: 1.8rem; }
       .filter-bar {
         flex-direction: column;
         align-items: stretch;
-      }
-      .filter-buttons {
-        width: 100%;
-        justify-content: center;
       }
       .search-container {
         width: 100%;
@@ -645,7 +379,7 @@ app.get("/", async (req, res) => {
 
   <script>
     const matches = ${JSON.stringify(matches)};
-    const geoData = ${JSON.stringify(geoData)};
+    console.log("matches:", matches);
 
     const map = L.map('map').setView([41.95, 2.25], 11);
 
@@ -658,26 +392,16 @@ app.get("/", async (req, res) => {
       maxClusterRadius: 50
     });
 
-    geoData.forEach(feature => {
-      const { coordinates } = feature.geometry;
-      const props = feature.properties;
-
-      const marker = L.circleMarker([coordinates[1], coordinates[0]], {
-        radius: 8,
-        fillColor: '#1A73E8',
-        color: '#ffffff',
-        weight: 2,
-        opacity: 1,
-        fillOpacity: 0.8
-      });
+    matches.forEach(m => {
+      const marker = L.marker([m.lat, m.lon]);
 
       const popupContent = \`
         <div style="font-family: 'Inter', sans-serif;">
-          <div class="popup-title">\${props.home} vs \${props.away}</div>
-          <div class="popup-detail">📅 \${props.dateStr}</div>
-          <div class="popup-detail">🕐 \${props.time}</div>
-          <div class="popup-detail">📍 \${props.location}</div>
-          \${props.actaUrl ? \`<div class="popup-detail"><a href="\${props.actaUrl}" target="_blank" style="color: #2ECC71; text-decoration: none;">Ver acta</a></div>\` : ''}
+          <div class="popup-title">\${m.home} vs \${m.away}</div>
+          <div class="popup-detail">📅 \${m.dateStr}</div>
+          <div class="popup-detail">🕐 \${m.time}</div>
+          <div class="popup-detail">📍 \${m.location}</div>
+          \${m.actaUrl ? \`<div class="popup-detail"><a href="\${m.actaUrl}" target="_blank" style="color: #2ECC71; text-decoration: none;">Ver acta</a></div>\` : ''}
         </div>
       \`;
 
@@ -734,7 +458,7 @@ app.get("/", async (req, res) => {
       const filtered = matches.filter(matchesFilter);
 
       matchList.innerHTML = filtered.length === 0
-        ? '<div class="no-results"><div class="no-results-icon">⚽</div><p>No es troben partits que coincideixin amb els filtres seleccionats.</p></div>'
+        ? '<div class="no-results"><p>No es troben partits que coincideixin amb els filtres seleccionats.</p></div>'
         : filtered.map(m => \`
           <div class="match-card">
             <div class="match-time">\${new Date(m.date).toLocaleDateString('ca-ES', { weekday: 'long', month: 'short', day: 'numeric' })} • \${m.time}</div>
@@ -744,14 +468,8 @@ app.get("/", async (req, res) => {
               <span class="team-name">\${m.away}</span>
             </div>
             <div class="match-details">
-              <div class="detail-item">
-                <span class="detail-icon">🕐</span>
-                <span>\${m.time}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-icon">📍</span>
-                <span>\${m.location}</span>
-              </div>
+              <div class="detail-item"><span>🕐 \${m.time}</span></div>
+              <div class="detail-item"><span>📍 \${m.location}</span></div>
             </div>
             \${m.actaUrl
               ? \`<a href="\${m.actaUrl}" target="_blank" class="acta-link">Ver acta completa</a>\`
@@ -783,47 +501,12 @@ app.get("/", async (req, res) => {
     res.send(html);
   } catch (error) {
     console.error("Error rendering page:", error);
-    res.status(500).send(
-      "<h1>Error loading matches</h1><p>" + error.message + "</p>"
-    );
+    res.status(500).send("<h1>Error loading page</h1><p>" + error.message + "</p>");
   }
 });
 
 // ==========================================
-// Route: Weekend API
-// ==========================================
-app.get("/api/weekend", async (req, res) => {
-  try {
-    const matches = await getAllMatches();
-    const now = DateTime.now().setZone(TZ);
-
-    const daysUntilSaturday = (6 - now.weekday + 7) % 7;
-    const weekendStart = now.plus({ days: daysUntilSaturday }).startOf("day");
-    const weekendEnd = weekendStart.plus({ days: 1 }).endOf("day");
-
-    const weekendMatches = matches.filter((m) => {
-      const matchDate = DateTime.fromISO(m.date, { zone: TZ });
-      return (
-        matchDate.isValid &&
-        matchDate >= weekendStart &&
-        matchDate <= weekendEnd
-      );
-    });
-
-    res.json({
-      from: weekendStart.toISO(),
-      to: weekendEnd.toISO(),
-      matches: weekendMatches,
-      count: weekendMatches.length
-    });
-  } catch (error) {
-    console.error("Error fetching weekend matches:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ==========================================
-// Route: Debug
+// Debug
 // ==========================================
 app.get("/api/debug", async (req, res) => {
   try {
@@ -833,7 +516,6 @@ app.get("/api/debug", async (req, res) => {
       sample: matches.slice(0, 10)
     });
   } catch (error) {
-    console.error("Error in debug route:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -845,9 +527,7 @@ app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
     app: "Sports Radar",
-    time: DateTime.now().setZone(TZ).toISO(),
-    cachedMatches: cachedMatches.length,
-    cacheTimestamp
+    time: DateTime.now().setZone(TZ).toISO()
   });
 });
 
@@ -856,5 +536,4 @@ app.get("/api/health", (req, res) => {
 // ==========================================
 app.listen(PORT, () => {
   console.log(`Sports Radar running at http://localhost:${PORT}`);
-  console.log(`Teams configured: ${TEAMS.length}`);
 });
