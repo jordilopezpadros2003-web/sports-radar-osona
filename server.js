@@ -70,7 +70,7 @@ const TEAMS = [
 const TEAM_COORDS = {
   vic: { lat: 41.9304, lon: 2.2546 },
   manlleu: { lat: 42.0026, lon: 2.2846 },
-  torell: { lat: 42.0485, lon: 2.2627 },
+  torello: { lat: 42.0485, lon: 2.2627 },
   roda: { lat: 41.9823, lon: 2.3114 },
   taradell: { lat: 41.8758, lon: 2.2877 },
   tona: { lat: 41.8467, lon: 2.2275 },
@@ -81,7 +81,7 @@ const TEAM_COORDS = {
   eugenia: { lat: 41.9009, lon: 2.2827 },
   cantonigros: { lat: 42.0418, lon: 2.3922 },
   moia: { lat: 41.8125, lon: 2.0987 },
-  prades: { lat: 42.0088, lon: 2.0265 },
+  pradenc: { lat: 42.0088, lon: 2.0265 },
   olost: { lat: 42.0107, lon: 2.0959 }
 };
 
@@ -108,7 +108,7 @@ function normalizeText(text = "") {
     .trim();
 }
 
-function findCoordinatesByTeam(teamName) {
+function findCoordinatesByTeam(teamName = "") {
   const normalized = normalizeText(teamName);
 
   for (const [key, coords] of Object.entries(TEAM_COORDS)) {
@@ -117,7 +117,7 @@ function findCoordinatesByTeam(teamName) {
     }
   }
 
-  return { lat: 41.95, lon: 2.25 };
+  return null;
 }
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = 5000) {
@@ -148,10 +148,11 @@ async function fetchMatchesForTeam(teamName, url) {
       url,
       {
         headers: {
-          "User-Agent": UA
+          "User-Agent": UA,
+          "Accept-Language": "ca-ES,ca;q=0.9,es;q=0.8,en;q=0.7"
         }
       },
-      7000
+      10000
     );
 
     if (!res.ok) {
@@ -163,25 +164,37 @@ async function fetchMatchesForTeam(teamName, url) {
     const $ = cheerio.load(html);
     const matches = [];
 
-    const rows = $("table.table tbody tr");
+    let rows = $("table.table tbody tr");
+    if (!rows.length) rows = $("table tbody tr");
+    if (!rows.length) rows = $(".table-responsive table tbody tr");
+    if (!rows.length) rows = $("tr");
+
     console.log(`${teamName}: rows found = ${rows.length}`);
 
     rows.each((_, row) => {
       const cells = $(row).find("td");
-      if (cells.length < 5) return;
+      if (cells.length < 4) return;
 
       const dateStr = cells.eq(0).text().trim();
       const time = cells.eq(1).text().trim() || "TBD";
       const opponent = cells.eq(2).text().trim();
       const location = cells.eq(3).text().trim() || "Ubicació no disponible";
-      const actaUrl = cells.eq(4).find("a").attr("href") || "";
+      const actaHref = cells.eq(4).find("a").attr("href") || "";
 
       if (!dateStr || !opponent) return;
 
       const matchDate = getMatchDate(dateStr);
-      if (!matchDate) return;
+      if (!matchDate || !matchDate.isValid) return;
 
-      const coords = findCoordinatesByTeam(location);
+      let coords = findCoordinatesByTeam(location);
+      if (!coords) coords = findCoordinatesByTeam(teamName);
+      if (!coords) coords = { lat: 41.95, lon: 2.25 };
+
+      const actaUrl = actaHref
+        ? actaHref.startsWith("http")
+          ? actaHref
+          : `https://www.fcf.cat${actaHref}`
+        : "";
 
       matches.push({
         date: matchDate.toISO(),
@@ -197,6 +210,7 @@ async function fetchMatchesForTeam(teamName, url) {
       });
     });
 
+    console.log(`${teamName}: matches parsed = ${matches.length}`);
     return matches;
   } catch (error) {
     console.error(`Error fetching ${teamName}: ${error.message}`);
@@ -218,9 +232,15 @@ async function getAllMatches() {
 
   console.log("Fetching all matches from FCF...");
 
-  const promises = TEAMS.map(({ team, url }) => fetchMatchesForTeam(team, url));
-  const results = await Promise.all(promises);
+  const validTeams = TEAMS.filter(
+    ({ url }) => url && url.startsWith("https://www.fcf.cat/")
+  );
 
+  const promises = validTeams.map(({ team, url }) =>
+    fetchMatchesForTeam(team, url)
+  );
+
+  const results = await Promise.all(promises);
   const allMatches = results.flat();
 
   const seen = new Set();
@@ -783,7 +803,11 @@ app.get("/api/weekend", async (req, res) => {
 
     const weekendMatches = matches.filter((m) => {
       const matchDate = DateTime.fromISO(m.date, { zone: TZ });
-      return matchDate.isValid && matchDate >= weekendStart && matchDate <= weekendEnd;
+      return (
+        matchDate.isValid &&
+        matchDate >= weekendStart &&
+        matchDate <= weekendEnd
+      );
     });
 
     res.json({
@@ -794,6 +818,22 @@ app.get("/api/weekend", async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching weekend matches:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==========================================
+// Route: Debug
+// ==========================================
+app.get("/api/debug", async (req, res) => {
+  try {
+    const matches = await getAllMatches();
+    res.json({
+      total: matches.length,
+      sample: matches.slice(0, 10)
+    });
+  } catch (error) {
+    console.error("Error in debug route:", error);
     res.status(500).json({ error: error.message });
   }
 });
